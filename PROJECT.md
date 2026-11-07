@@ -17,5 +17,5 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 - [x] Public repo with CI and tag 1.0.0
 - [x] HiveRounds uses it (hive-rounds PR 5)
 - [x] HiveTempo uses it (its own copies removed)
-- [ ] HiveScore uses it (its own copies removed; gains HiveTempo's sign-out race fix)
-- [ ] HiveMind's iOS app uses it where it overlaps
+- [x] HiveScore uses it (its own copies removed; gains HiveTempo's sign-out race fix)
+- [x] HiveMind's iOS app uses it where it overlaps
