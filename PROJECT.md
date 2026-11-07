@@ -14,7 +14,7 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 
 ## Milestones
 - [x] Package with HTTP, GitHub client and sign-in (from HiveTempo's newer copy), shared TestFlight script; tests pass
-- [ ] Public repo with CI and tag 1.0.0
+- [x] Public repo with CI and tag 1.0.0
 - [ ] HiveRounds uses it
 - [ ] HiveTempo uses it (its own copies removed)
 - [ ] HiveScore uses it (its own copies removed; gains HiveTempo's sign-out race fix)
