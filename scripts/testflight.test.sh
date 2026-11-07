@@ -16,6 +16,8 @@ out=$(sh "$here/testflight.sh" "$t/app" Demo "Demo App" --dry-run)
 echo "$out" | grep -q "xcodebuild archive -project $t/app/Demo.xcodeproj -scheme Demo" || fail "archive command: $out"
 echo "$out" | grep -q -- "-exportOptionsPlist $t/app/Config/ExportOptions.plist" || fail "export command"
 echo "$out" | grep -q "authenticationKey" && fail "no API key unless set"
+printf 'DEVELOPMENT_TEAM = ZZZZZ99999\n' > "$t/other.xcconfig"
+HIVE_SIGNING="$t/other.xcconfig" sh "$here/testflight.sh" "$t/app" Demo Demo --dry-run | grep -q -- "-xcconfig $t/other.xcconfig" || fail "HIVE_SIGNING"
 HIVE_BUILD=20991231.1 sh "$here/testflight.sh" "$t/app" Demo Demo --dry-run | grep -q "CURRENT_PROJECT_VERSION=20991231.1" || fail "HIVE_BUILD"
 printf 'DEVELOPMENT_TEAM = ABCDE12345\nASC_KEY_ID = K1\nASC_ISSUER_ID = I1\n' > "$t/app/Config/Signing.xcconfig"
 HOME=$t sh "$here/testflight.sh" "$t/app" Demo Demo --dry-run 2>&1 | grep -q "AuthKey_K1.p8 is missing" || fail "key file check"
