@@ -26,7 +26,8 @@ public struct GitHubClient: Sendable {
 
     let keeper: TokenKeeper
     let transport: any HTTPTransport
-    let now: @Sendable () -> Date
+    /// The clock every request uses (apps read it so their own times match).
+    public let now: @Sendable () -> Date
 
     public init(keeper: TokenKeeper, transport: any HTTPTransport = URLSessionTransport(),
                 now: @escaping @Sendable () -> Date = Date.init) {
