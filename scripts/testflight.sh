@@ -20,7 +20,8 @@ case "${4:-}" in
   "") ;;
   *) usage ;;
 esac
-signing=$here/Config/Signing.xcconfig
+# HIVE_SIGNING points at another Signing.xcconfig (an app's own tests use a temporary one).
+signing=${HIVE_SIGNING:-$here/Config/Signing.xcconfig}
 if ! [ -f "$signing" ] || ! grep -Eq '^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=[[:space:]]*[A-Za-z0-9]+' "$signing"; then
   echo "testflight.sh: no Team ID. Copy Config/Signing.xcconfig.example to $signing and put your Team ID after DEVELOPMENT_TEAM =" >&2
   exit 1
