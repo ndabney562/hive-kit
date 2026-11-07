@@ -140,17 +140,20 @@ struct GitHubAuthTests {
     }
 
     @Test func callersJoiningARefreshHonourSignOut() async throws {
+        // The refresh answers only after sign-out (a gate, not a sleep: slow CI runners overslept, 2026-11-07).
         let reply = json(tokenReply)
+        let open = Mutex(false)
         let stub = StubTransport { _ in
-            try? await Task.sleep(for: .milliseconds(200))
+            while !open.withLock({ $0 }) { try? await Task.sleep(for: .milliseconds(5)) }
             return reply
         }
         let keeper = TokenKeeper(flow: flow(stub), safe: MemorySafe(expiring(in: 60)))
         let first = Task { try await keeper.accessToken() }
-        try await Task.sleep(for: .milliseconds(30))
+        while stub.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }   // the refresh is in flight
         let joined = Task { try await keeper.accessToken() }
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(30))   // joins the refresh; if late, it finds no token: also signed out
         await keeper.signOut()
+        open.withLock { $0 = true }
         #expect((try? await first.value) == nil)
         #expect((try? await joined.value) == nil, "a joined caller must not get a token after sign-out")
     }
