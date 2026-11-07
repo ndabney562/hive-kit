@@ -149,6 +149,7 @@ public protocol TokenSafe: Sendable {
 #if canImport(Security)
 public struct KeychainError: Error, Equatable {
     public let status: OSStatus
+    public init(status: OSStatus) { self.status = status }
 }
 
 /// The Keychain: readable after the first unlock, never synced or restored to another device. Pass the App Group's
