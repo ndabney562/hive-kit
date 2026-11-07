@@ -36,6 +36,11 @@ struct GitHubClientTests {
         await #expect(throws: FetchError.rateLimited(until: Date(timeIntervalSince1970: 1_793_800_000))) {
             try await client(primary).rest("/repos/o/r/dependabot/alerts", missing: [403, 404])
         }
+        // A secondary limit can arrive as a bare 403 with only its message.
+        let bare = StubTransport { _ in json(["message": "You have exceeded a secondary rate limit."], status: 403) }
+        await #expect(throws: FetchError.rateLimited(until: nil)) {
+            try await client(bare).rest("/repos/o/r/dependabot/alerts", missing: [403, 404])
+        }
         let secondary = StubTransport { _ in json(["message": "slow down"], status: 429, headers: ["Retry-After": "60"]) }
         await #expect(throws: FetchError.rateLimited(until: clock.now().addingTimeInterval(60))) {
             try await client(secondary).rest("/repos/o/r")

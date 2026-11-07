@@ -97,9 +97,13 @@ public struct GitHubClient: Sendable {
         }
     }
 
+    /// GitHub's primary limit (remaining 0), secondary limit (Retry-After, or only its message), or a 429.
     func isRateLimited(_ reply: HTTPReply) -> Bool {
-        reply.status == 429 || (reply.status == 403 &&
-            (reply.headers["x-ratelimit-remaining"] == "0" || reply.headers["retry-after"] != nil))
+        if reply.status == 429 { return true }
+        guard reply.status == 403 else { return false }
+        if reply.headers["x-ratelimit-remaining"] == "0" || reply.headers["retry-after"] != nil { return true }
+        let json = try? JSONSerialization.jsonObject(with: reply.data) as? [String: Any]
+        return (json?["message"] as? String)?.localizedCaseInsensitiveContains("rate limit") == true
     }
 
     public func check(_ reply: HTTPReply) throws {
