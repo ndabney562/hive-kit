@@ -46,7 +46,8 @@ if [ -n "$key_id" ] && [ -n "$issuer" ]; then
   fi
   set -- -authenticationKeyPath "$key_file" -authenticationKeyID "$key_id" -authenticationKeyIssuerID "$issuer"
 fi
-build=$(date +%Y%m%d.%H%M)
+# HIVE_BUILD sets the build number by hand: Apple refuses one lower than the last upload (HiveMind, 2026-11-04).
+build=${HIVE_BUILD:-$(date +%Y%m%d.%H%M)}
 archive="$here/build/$project.xcarchive"
 run() {
   if [ "$dry" -eq 1 ]; then printf '%s\n' "$*"; else "$@"; fi
