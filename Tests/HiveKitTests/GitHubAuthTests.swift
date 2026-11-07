@@ -155,6 +155,29 @@ struct GitHubAuthTests {
         #expect((try? await joined.value) == nil, "a joined caller must not get a token after sign-out")
     }
 
+    @Test func aNewSignInBeatsAnOlderRefresh() async throws {
+        // The old account's refresh is slow; the new sign-in finishes first.
+        let refreshed = json(tokenReply.merging(["access_token": "ghu_old_refreshed"]) { $1 })
+        let fresh = json(tokenReply)
+        let code = json(["device_code": "dc", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device",
+                         "expires_in": 900, "interval": 5])
+        let stub = StubTransport { request in
+            let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+            if body.contains("refresh_token") {
+                try? await Task.sleep(for: .milliseconds(200))
+                return refreshed
+            }
+            return request.url?.path == "/login/device/code" ? code : fresh
+        }
+        let safe = MemorySafe(expiring(in: 60))
+        let keeper = TokenKeeper(flow: flow(stub), safe: safe)
+        let old = Task { try? await keeper.accessToken() }
+        try await Task.sleep(for: .milliseconds(30))
+        try await keeper.signIn { _ in }
+        _ = await old.value
+        #expect(safe.read()?.accessToken == "ghu_new", "the new account's token must stay")
+    }
+
     @Test func aDeadRefreshTokenSignsOut() async throws {
         let safe = MemorySafe(expiring(in: 60))
         let keeper = TokenKeeper(flow: flow(StubTransport(script: [["error": "bad_refresh_token"]])), safe: safe)

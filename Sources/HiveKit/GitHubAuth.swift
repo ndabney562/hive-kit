@@ -222,6 +222,10 @@ public actor TokenKeeper {
         let token = try await flow.waitForToken(code)
         // A sign-out while the code was on screen wins (Codex review, 2026-11-07).
         guard session == started else { throw AuthError.signedOut }
+        // A new sign-in replaces the session: an older refresh still in flight must not overwrite it.
+        session += 1
+        refreshing?.cancel()
+        refreshing = nil
         try safe.write(token)
     }
 
