@@ -18,4 +18,13 @@ echo "$out" | grep -q -- "-exportOptionsPlist $t/app/Config/ExportOptions.plist"
 echo "$out" | grep -q "authenticationKey" && fail "no API key unless set"
 printf 'DEVELOPMENT_TEAM = ABCDE12345\nASC_KEY_ID = K1\nASC_ISSUER_ID = I1\n' > "$t/app/Config/Signing.xcconfig"
 HOME=$t sh "$here/testflight.sh" "$t/app" Demo Demo --dry-run 2>&1 | grep -q "AuthKey_K1.p8 is missing" || fail "key file check"
+# A home folder with a space: the key path must reach xcodebuild as one argument.
+mkdir -p "$t/my home/.appstoreconnect/private_keys" && touch "$t/my home/.appstoreconnect/private_keys/AuthKey_K1.p8"
+cat > "$t/xcodebuild" <<'X'
+#!/bin/sh
+while [ $# -gt 0 ]; do [ "$1" = -authenticationKeyPath ] && echo "KEY=[$2]"; shift; done
+X
+chmod +x "$t/xcodebuild"
+out=$(HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo)
+echo "$out" | grep -q "KEY=\[$t/my home/.appstoreconnect/private_keys/AuthKey_K1.p8\]" || fail "key path split: $out"
 echo "testflight.test.sh: all checks passed"

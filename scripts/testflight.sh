@@ -36,25 +36,25 @@ fi
 setting() { sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\([^[:space:]]*\).*/\1/p" "$signing" | tail -1; }
 key_id=$(setting ASC_KEY_ID)
 issuer=$(setting ASC_ISSUER_ID)
-auth=""
+# The API-key arguments, as positional parameters so a path with spaces stays one argument.
+set --
 if [ -n "$key_id" ] && [ -n "$issuer" ]; then
   key_file=$HOME/.appstoreconnect/private_keys/AuthKey_$key_id.p8
   if ! [ -f "$key_file" ]; then
     echo "testflight.sh: ASC_KEY_ID is set but $key_file is missing. Download the key from App Store Connect › Users and Access › Integrations." >&2
     exit 1
   fi
-  auth="-authenticationKeyPath $key_file -authenticationKeyID $key_id -authenticationKeyIssuerID $issuer"
+  set -- -authenticationKeyPath "$key_file" -authenticationKeyID "$key_id" -authenticationKeyIssuerID "$issuer"
 fi
 build=$(date +%Y%m%d.%H%M)
 archive="$here/build/$project.xcarchive"
 run() {
-  if [ "$dry" -eq 1 ]; then echo "$*"; else "$@"; fi
+  if [ "$dry" -eq 1 ]; then printf '%s\n' "$*"; else "$@"; fi
 }
-# $auth is empty or several words: left unquoted on purpose.
 run xcodebuild archive -project "$here/$project.xcodeproj" -scheme "$project" -destination generic/platform=iOS \
-  -archivePath "$archive" -allowProvisioningUpdates $auth -xcconfig "$signing" CURRENT_PROJECT_VERSION="$build"
+  -archivePath "$archive" -allowProvisioningUpdates "$@" -xcconfig "$signing" CURRENT_PROJECT_VERSION="$build"
 run xcodebuild -exportArchive -archivePath "$archive" -exportPath "$here/build/export" \
-  -exportOptionsPlist "$here/Config/ExportOptions.plist" -allowProvisioningUpdates $auth
+  -exportOptionsPlist "$here/Config/ExportOptions.plist" -allowProvisioningUpdates "$@"
 if [ "$dry" -eq 0 ]; then
   echo "Uploaded $name build $build. Apple processes it in about 15 minutes; then it appears in App Store Connect › $name › TestFlight and in the TestFlight app on your iPhone."
   if [ -f "$here/Config/testflight-note.txt" ]; then cat "$here/Config/testflight-note.txt"; fi
