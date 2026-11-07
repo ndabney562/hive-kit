@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum FetchError: Error, Equatable {
     case offline
@@ -42,6 +45,8 @@ public struct GitHubClient: Sendable {
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         let reply = try await send(request)
+        // A rate limit can come back as a 403: report it, never mistake it for "feature off".
+        if isRateLimited(reply) { throw FetchError.rateLimited(until: resetDate(reply)) }
         if missing.contains(reply.status) { return nil }
         try check(reply)
         return reply.data
@@ -92,11 +97,13 @@ public struct GitHubClient: Sendable {
         }
     }
 
+    func isRateLimited(_ reply: HTTPReply) -> Bool {
+        reply.status == 429 || (reply.status == 403 &&
+            (reply.headers["x-ratelimit-remaining"] == "0" || reply.headers["retry-after"] != nil))
+    }
+
     public func check(_ reply: HTTPReply) throws {
-        if reply.status == 429 || (reply.status == 403 &&
-            (reply.headers["x-ratelimit-remaining"] == "0" || reply.headers["retry-after"] != nil)) {
-            throw FetchError.rateLimited(until: resetDate(reply))
-        }
+        if isRateLimited(reply) { throw FetchError.rateLimited(until: resetDate(reply)) }
         guard (200..<300).contains(reply.status) else {
             let json = try? JSONSerialization.jsonObject(with: reply.data) as? [String: Any]
             throw FetchError.github(status: reply.status, message: json?["message"] as? String ?? "")

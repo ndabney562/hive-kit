@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Synchronization
 import Testing
 @testable import HiveKit
@@ -120,6 +123,36 @@ struct GitHubAuthTests {
         _ = await call.value
         #expect(safe.read() == nil)
         #expect(await !keeper.isSignedIn)
+    }
+
+    @Test func signOutWhileTheCodeIsOnScreenWins() async throws {
+        let stub = StubTransport(script: [
+            ["device_code": "dc", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device",
+             "expires_in": 900, "interval": 5],
+            tokenReply,
+        ])
+        let safe = MemorySafe()
+        let keeper = TokenKeeper(flow: flow(stub), safe: safe)
+        await #expect(throws: AuthError.signedOut) {
+            try await keeper.signIn { _ in await keeper.signOut() }   // the user taps Sign out mid-sign-in
+        }
+        #expect(safe.read() == nil)
+    }
+
+    @Test func callersJoiningARefreshHonourSignOut() async throws {
+        let reply = json(tokenReply)
+        let stub = StubTransport { _ in
+            try? await Task.sleep(for: .milliseconds(200))
+            return reply
+        }
+        let keeper = TokenKeeper(flow: flow(stub), safe: MemorySafe(expiring(in: 60)))
+        let first = Task { try await keeper.accessToken() }
+        try await Task.sleep(for: .milliseconds(30))
+        let joined = Task { try await keeper.accessToken() }
+        try await Task.sleep(for: .milliseconds(30))
+        await keeper.signOut()
+        #expect((try? await first.value) == nil)
+        #expect((try? await joined.value) == nil, "a joined caller must not get a token after sign-out")
     }
 
     @Test func aDeadRefreshTokenSignsOut() async throws {

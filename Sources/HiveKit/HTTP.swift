@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// One HTTP answer: GitHub's rate-limit state lives in the headers, so they come back with the body.
 public struct HTTPReply: Sendable {

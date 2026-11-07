@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 #if canImport(Security)
 import Security
 #endif
@@ -143,11 +146,10 @@ public protocol TokenSafe: Sendable {
     func clear()
 }
 
+#if canImport(Security)
 public struct KeychainError: Error, Equatable {
     public let status: OSStatus
 }
-
-#if canImport(Security)
 
 /// The Keychain: readable after the first unlock, never synced or restored to another device. Pass the App Group's
 /// access group to share the token with the widget.
@@ -214,9 +216,13 @@ public actor TokenKeeper {
 
     /// Signs in with the device flow; `show` gets the code to put on screen.
     public func signIn(show: @Sendable (DeviceCode) async -> Void) async throws {
+        let started = session
         let code = try await flow.start()
         await show(code)
-        try safe.write(try await flow.waitForToken(code))
+        let token = try await flow.waitForToken(code)
+        // A sign-out while the code was on screen wins (Codex review, 2026-11-07).
+        guard session == started else { throw AuthError.signedOut }
+        try safe.write(token)
     }
 
     public func signOut() {
@@ -243,7 +249,13 @@ public actor TokenKeeper {
     }
 
     private func refresh(_ token: Token) async throws -> Token {
-        if let refreshing { return try await refreshing.value }
+        if let refreshing {
+            let joined = session
+            let fresh = try await refreshing.value
+            // Callers that joined a refresh honour a sign-out too (Codex review, 2026-11-07).
+            guard session == joined else { throw AuthError.signedOut }
+            return fresh
+        }
         guard let refreshToken = token.refreshToken,
               token.refreshExpiresAt.map({ $0 > flow.now() }) ?? true else {
             safe.clear()

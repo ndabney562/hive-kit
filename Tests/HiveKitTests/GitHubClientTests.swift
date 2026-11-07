@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 @testable import HiveKit
 
@@ -28,6 +31,10 @@ struct GitHubClientTests {
         }
         await #expect(throws: FetchError.rateLimited(until: Date(timeIntervalSince1970: 1_793_800_000))) {
             try await client(primary).rest("/repos/o/r")
+        }
+        // A rate limit is not "feature off", even where 403 means that.
+        await #expect(throws: FetchError.rateLimited(until: Date(timeIntervalSince1970: 1_793_800_000))) {
+            try await client(primary).rest("/repos/o/r/dependabot/alerts", missing: [403, 404])
         }
         let secondary = StubTransport { _ in json(["message": "slow down"], status: 429, headers: ["Retry-After": "60"]) }
         await #expect(throws: FetchError.rateLimited(until: clock.now().addingTimeInterval(60))) {
