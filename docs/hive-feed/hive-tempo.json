@@ -1,0 +1,4 @@
+{"schema": 1, "app": "hive-tempo", "written_at": "2026-11-08T19:00:00Z", "stale_after_minutes": 90,
+ "detail": {"repo": "ndabney562/hive-tempo", "branch": "tempo", "path": "tempo.json"},
+ "summary": {"date": "2026-11-08", "state": "inProgress", "done": 3, "total": 5,
+             "current": {"title": "Post today's TikTok", "until": "14:30"}, "next": {"title": "Write the episode", "at": "15:00"}}}

@@ -19,3 +19,4 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 - [x] HiveTempo uses it (its own copies removed)
 - [x] HiveScore uses it (its own copies removed; gains HiveTempo's sign-out race fix)
 - [x] HiveMind's iOS app uses it where it overlaps
+- [ ] Hive feed: three apps publish, one link live (spec 2026-11-08)
