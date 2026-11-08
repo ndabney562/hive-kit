@@ -1,0 +1,4 @@
+{"schema": 1, "app": "hivemind", "written_at": "2026-11-08T19:00:00Z", "stale_after_minutes": 90,
+ "summary": {"quota": [{"ai": "codex", "left_pct": 90, "read_at": "2026-11-08T18:30:00Z"}],
+             "alerts": [{"kind": "on_battery", "text": "The Mac is unplugged", "at": "2026-11-08T18:55:00Z"}],
+             "now": "Speed: median answer 23 s → under 10 s"}}
