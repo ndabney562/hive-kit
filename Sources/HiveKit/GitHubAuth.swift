@@ -4,6 +4,7 @@ import FoundationNetworking
 #endif
 #if canImport(Security)
 import Security
+import CryptoKit
 #endif
 
 // GitHub sign-in: a GitHub App with the device flow (the user types a short code on github.com). No client secret
@@ -144,9 +145,79 @@ public protocol TokenSafe: Sendable {
     func read() -> Token?
     func write(_ token: Token) throws
     func clear()
+    /// Saves `new` only if the store still holds `old`; false when another app changed it first (signed out, signed
+    /// in again, or refreshed). The Keychain store does the check and the save in one step (Codex, PR #18).
+    func replace(_ old: Token, with new: Token) throws -> Bool
+}
+
+extension TokenSafe {
+    /// Check, then save: enough for a store only one process uses.
+    public func replace(_ old: Token, with new: Token) throws -> Bool {
+        guard read() == old else { return false }
+        try write(new)
+        return true
+    }
+}
+
+/// One GitHub sign-in for every Hive app (Noah, 2026-11-09: "sign in once"). Reads the shared token first, then
+/// the app's own older one, which it moves into the shared store. Saves to the shared store, or to the app's own when
+/// sharing fails (e.g. a simulator build without the Keychain group). Sign-out clears both, so it signs out every app.
+public struct SharedTokenSafe: TokenSafe {
+    let shared: any TokenSafe
+    let own: any TokenSafe
+
+    public init(shared: any TokenSafe, own: any TokenSafe) {
+        self.shared = shared
+        self.own = own
+    }
+
+    /// What the shared store holds after a sign-out: a marker, not an empty store, so an app's older own token is
+    /// never moved back in and every app stays signed out (Codex, PR #18).
+    static let signedOut = Token(accessToken: "", expiresAt: nil, refreshToken: nil, refreshExpiresAt: nil)
+
+    public func read() -> Token? {
+        if let token = shared.read() {
+            own.clear()  // the shared token (or the sign-out marker) wins over a stale own copy
+            return token.accessToken.isEmpty ? nil : token
+        }
+        guard let token = own.read() else { return nil }
+        if (try? shared.write(token)) != nil { own.clear() }  // moved: the other Hive apps see it now
+        return token
+    }
+
+    public func write(_ token: Token) throws {
+        do {
+            try shared.write(token)
+            own.clear()
+        } catch {
+            try own.write(token)
+        }
+    }
+
+    public func clear() {
+        if (try? shared.write(Self.signedOut)) == nil { shared.clear() }
+        own.clear()
+    }
+
+    public func replace(_ old: Token, with new: Token) throws -> Bool {
+        if shared.read() != nil { return try shared.replace(old, with: new) }  // the marker never matches a token
+        return try own.replace(old, with: new)
+    }
 }
 
 #if canImport(Security)
+extension SharedTokenSafe {
+    /// The Keychain store every Hive app shares, plus the app's own (`service` = its bundle id). The group name comes
+    /// from the app's Info.plist key `HiveKeychainGroup` (`$(AppIdentifierPrefix)com.noahdabney.hive`), which must
+    /// match a `keychain-access-groups` entitlement; without the key the app keeps its own token, as before.
+    public static func hive(service: String, bundle: Bundle = .main) -> any TokenSafe {
+        let own = KeychainTokenSafe(service: service)
+        guard let group = bundle.object(forInfoDictionaryKey: "HiveKeychainGroup") as? String,
+              !group.isEmpty, !group.hasPrefix("$(") else { return own }
+        return SharedTokenSafe(shared: KeychainTokenSafe(service: "com.noahdabney.hive", accessGroup: group), own: own)
+    }
+}
+
 public struct KeychainError: Error, Equatable {
     public let status: OSStatus
     public init(status: OSStatus) { self.status = status }
@@ -159,7 +230,8 @@ public struct KeychainTokenSafe: TokenSafe {
     let accessGroup: String?
     static let account = "github"
 
-    /// `service` is the app's own Keychain name (e.g. "com.noahdabney.hivetempo"), so apps never share a token.
+    /// `service` is the Keychain name (an app's own, e.g. "com.noahdabney.hivetempo", or the shared
+    /// "com.noahdabney.hive" with the Hive `accessGroup`; see `SharedTokenSafe.hive`).
     public init(service: String, accessGroup: String? = nil) {
         self.service = service
         self.accessGroup = accessGroup
@@ -185,9 +257,33 @@ public struct KeychainTokenSafe: TokenSafe {
         clear()
         var q = query
         q[kSecValueData as String] = try JSONEncoder().encode(token)
+        q[kSecAttrGeneric as String] = Self.fingerprint(token)
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(q as CFDictionary, nil)
         if status != errSecSuccess { throw KeychainError(status: status) }
+    }
+
+    /// One Keychain update that matches the stored item by `old`'s fingerprint: if another app changed the item
+    /// first, nothing matches and nothing is saved.
+    public func replace(_ old: Token, with new: Token) throws -> Bool {
+        var q = query
+        q[kSecAttrGeneric as String] = Self.fingerprint(old)
+        let change: [String: Any] = [kSecValueData as String: try JSONEncoder().encode(new),
+                                     kSecAttrGeneric as String: Self.fingerprint(new)]
+        let status = SecItemUpdate(q as CFDictionary, change as CFDictionary)
+        if status == errSecSuccess { return true }
+        guard status == errSecItemNotFound else { throw KeychainError(status: status) }
+        // An item saved before 1.5.0 has no fingerprint. Those live only in an app's own store (no access group),
+        // which one app uses, so check-then-save is safe there. The shared store is only ever written with a
+        // fingerprint, so it never takes this path and stays one atomic step (Codex, PR #18 round 3).
+        guard accessGroup == nil, read() == old else { return false }
+        try write(new)
+        return true
+    }
+
+    /// A SHA-256 of the access token: matches the item without keeping the token in a searchable attribute.
+    static func fingerprint(_ token: Token) -> Data {
+        Data(SHA256.hash(data: Data(token.accessToken.utf8)))
     }
 
     public func clear() {
@@ -267,19 +363,31 @@ public actor TokenKeeper {
             throw AuthError.signedOut
         }
         let started = session
-        let task = Task { [flow] in try await flow.refresh(refreshToken) }
+        // The refresh saves inside the task, so every caller (the first and those that join) gets the same checked
+        // result. It saves only over the token it started from: a sign-out, a new sign-in or another Hive app's
+        // refresh in between wins (shared store, Codex PR #18).
+        let task = Task { [flow, safe] () throws -> Token in
+            let fresh: Token
+            do {
+                fresh = try await flow.refresh(refreshToken)
+            } catch AuthError.signedOut {
+                // GitHub refused the refresh token. It works once, so if another app refreshed first, its new token
+                // is saved already: use it. Otherwise sign out, but only over the dead token (one Keychain step).
+                if try safe.replace(token, with: SharedTokenSafe.signedOut) {
+                    if safe.read()?.accessToken == "" { safe.clear() }  // a single app's store keeps no marker
+                    throw AuthError.signedOut
+                }
+                guard let current = safe.read() else { throw AuthError.signedOut }
+                return current
+            }
+            if try safe.replace(token, with: fresh) { return fresh }
+            guard let current = safe.read() else { throw AuthError.signedOut }
+            return current
+        }
         refreshing = task
         defer { if session == started { refreshing = nil } }
-        do {
-            let fresh = try await task.value
-            // Saved on the actor, after the await: a sign-out in between wins.
-            guard session == started else { throw AuthError.signedOut }
-            try safe.write(fresh)
-            return fresh
-        } catch AuthError.signedOut {
-            guard session == started else { throw AuthError.signedOut }
-            safe.clear()
-            throw AuthError.signedOut
-        }
+        let fresh = try await task.value
+        guard session == started else { throw AuthError.signedOut }  // this app signed out or in again meanwhile
+        return fresh
     }
 }

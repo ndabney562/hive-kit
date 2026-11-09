@@ -50,6 +50,13 @@ final class MemorySafe: TokenSafe {
     func clear() { token.withLock { $0 = nil } }
 }
 
+/// A token store that can't save (a Keychain group the app isn't signed for).
+final class BrokenSafe: TokenSafe {
+    func read() -> Token? { nil }
+    func write(_ t: Token) throws { throw AuthError.github("no access group") }
+    func clear() {}
+}
+
 /// A clock the test moves by hand.
 final class TestClock: Sendable {
     let time: Mutex<Date>
