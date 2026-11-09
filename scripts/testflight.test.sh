@@ -34,6 +34,15 @@ cat > "$t/osascript" <<'X'
 for a; do last=$a; done; echo "$last" > "$OSA_LOG"
 X
 chmod +x "$t/osascript"
+# A fake App Store Connect: the app record exists, so the check passes.
+printf '{"GET /v1/bundleIds?filter[identifier]=com.x.demo&fields[bundleIds]=identifier": [200, {"data": [{"attributes": {"identifier": "com.x.demo"}}]}], "GET /v1/apps?filter[bundleId]=com.x.demo&fields[apps]=bundleId,name": [200, {"data": [{"attributes": {"bundleId": "com.x.demo"}}]}]}' > "$t/ready.json"
+printf '{"GET /v1/bundleIds?filter[identifier]=com.x.demo&fields[bundleIds]=identifier": [200, {"data": [{"attributes": {"identifier": "com.x.demo"}}]}], "GET /v1/apps?filter[bundleId]=com.x.demo&fields[apps]=bundleId,name": [200, {"data": []}]}' > "$t/norecord.json"
+mkdir -p "$t/app/Demo.xcodeproj" && echo 'PRODUCT_BUNDLE_IDENTIFIER = com.x.demo;' > "$t/app/Demo.xcodeproj/project.pbxproj"
+export HIVE_ASC_FAKE="$t/ready.json" HIVE_ASC_FAKE_LOG="$t/post.log"
+out=$(HOME="$t/my home" PATH="$t:$PATH" HIVE_ASC_FAKE="$t/norecord.json" HIVE_NO_REMIND=1 sh "$here/testflight.sh" "$t/app" Demo Demo 2>&1) && fail "no app record should stop the upload"
+echo "$out" | grep -q "NOT READY Demo" || fail "app record message: $out"
+echo "$out" | grep -q "KEY=" && fail "archive must not run without an app record"
+HOME="$t/my home" sh "$here/testflight.sh" "$t/app" Demo Demo --dry-run | grep -q "asc_check.py $t/app" || fail "dry run shows the check"
 out=$(OSA_LOG="$t/osa.log" HIVE_BUILD=7 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo "Demo App")
 echo "$out" | grep -q "KEY=\[$t/my home/.appstoreconnect/private_keys/AuthKey_K1.p8\]" || fail "key path split: $out"
 [ "$(cat "$t/osa.log")" = "Update Demo App in TestFlight (build 7)" ] || fail "reminder title: $(cat "$t/osa.log")"

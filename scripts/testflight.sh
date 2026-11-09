@@ -49,6 +49,17 @@ if [ -n "$key_id" ] && [ -n "$issuer" ]; then
   fi
   set -- -authenticationKeyPath "$key_file" -authenticationKeyID "$key_id" -authenticationKeyIssuerID "$issuer"
 fi
+# Stop before a 10-minute archive when Apple has no app for this bundle ID (asc_check.py registers a missing bundle
+# ID and prints Noah's steps for the app record). Needs the API key; without one it can't check and says so.
+if [ -n "$key_id" ] && [ -n "$issuer" ]; then
+  if [ "$dry" -eq 1 ]; then
+    echo "python3 -I $(dirname "$0")/asc_check.py $here"
+  else
+    python3 -I "$(dirname "$0")/asc_check.py" "$here" || exit 1
+  fi
+else
+  echo "testflight.sh: no API key, so the App Store Connect app record isn't checked (run asc_check.py by hand)." >&2
+fi
 # HIVE_BUILD sets the build number by hand: Apple refuses one lower than the last upload (HiveMind, 2026-11-04).
 build=${HIVE_BUILD:-$(date +%Y%m%d.%H%M)}
 archive="$here/build/$project.xcarchive"

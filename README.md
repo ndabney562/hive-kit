@@ -5,6 +5,7 @@ The Hive apps' shared logic as one Swift package (Noah, 2026-11-07: "these proje
 - **HTTP:** `HTTPTransport`, `HTTPReply`, `URLSessionTransport` (ephemeral session), `URLRequest.form`.
 - **GitHub (read-only):** `GitHubClient` (`rest`, `graphql`, one retry after a refresh, rate limits as `FetchError.rateLimited`), device-flow sign-in (`DeviceFlow`, `TokenKeeper`, `KeychainTokenSafe(service:)` with the app's own bundle id, so apps never share a token).
 - **TestFlight:** `scripts/testflight.sh <repo> <project> <name> [--dry-run]` and `scripts/ExportOptions.plist`.
+- **App Store Connect check:** `python3 -I scripts/asc_check.py <repo>` registers the app's bundle ID if Apple doesn't have it and stops with Noah's steps when App Store Connect has no app record. `testflight.sh` runs it before every archive; run it the day a new Hive app's Xcode project is made.
 
 ## Use it
 
@@ -17,5 +18,5 @@ The Hive apps' shared logic as one Swift package (Noah, 2026-11-07: "these proje
 
 ## Change it
 
-1. Change it here, with a test. `swift test && sh scripts/testflight.test.sh`.
+1. Change it here, with a test. `swift test && sh scripts/testflight.test.sh && sh scripts/asc_check.test.sh`.
 2. Tag a new version (`git tag 1.0.1 && git push --tags`) and bump each app's package version in the same week.
