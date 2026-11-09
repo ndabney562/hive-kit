@@ -1,6 +1,6 @@
 #!/bin/sh
 # Checks scripts/asc_check.py against a fake App Store Connect (HIVE_ASC_FAKE): ready, missing app record,
-# bundle ID registered when missing, --no-register, no key, test bundle IDs ignored, DER signature conversion.
+# bundle ID registered when missing, --no-register, no key, test bundle IDs ignored, nested apps, DER signature conversion.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
@@ -30,6 +30,13 @@ rm "$t/post.log"
 out=$(HIVE_ASC_FAKE="$t/new.json" check "$t/app" --no-register) && fail "--no-register should fail"
 echo "$out" | grep -q "is not registered" || fail "--no-register message: $out"
 [ -f "$t/post.log" ] && fail "--no-register must not register"
+# An app kept in a subfolder (HiveMind: apps/ios) is found; build output folders are not.
+mkdir -p "$t/mono/apps/ios/Config" "$t/mono/apps/ios/Shop.xcodeproj" "$t/mono/.build/x/Old.xcodeproj"
+cp "$t/app/Shop.xcodeproj/project.pbxproj" "$t/mono/apps/ios/Shop.xcodeproj/"
+cp "$t/app/Config/Signing.xcconfig" "$t/mono/apps/ios/Config/"
+printf 'PRODUCT_BUNDLE_IDENTIFIER = com.x.old;\n' > "$t/mono/.build/x/Old.xcodeproj/project.pbxproj"
+out=$(HIVE_ASC_FAKE="$t/ready.json" check "$t/mono") || fail "nested app should pass: $out"
+echo "$out" | grep -q "READY Shop: com.x.shop" || fail "nested app message: $out"
 # A DER signature with a leading zero byte in r turns into exactly 64 bytes.
 python3 -I -c "
 import sys; sys.path.insert(0, '$here'); from asc_check import der_to_raw
