@@ -273,8 +273,10 @@ public struct KeychainTokenSafe: TokenSafe {
         let status = SecItemUpdate(q as CFDictionary, change as CFDictionary)
         if status == errSecSuccess { return true }
         guard status == errSecItemNotFound else { throw KeychainError(status: status) }
-        // An item saved before 1.5.0 has no fingerprint: it moves over once, by check-then-save.
-        guard read() == old else { return false }
+        // An item saved before 1.5.0 has no fingerprint. Those live only in an app's own store (no access group),
+        // which one app uses, so check-then-save is safe there. The shared store is only ever written with a
+        // fingerprint, so it never takes this path and stays one atomic step (Codex, PR #18 round 3).
+        guard accessGroup == nil, read() == old else { return false }
         try write(new)
         return true
     }
