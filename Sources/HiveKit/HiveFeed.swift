@@ -92,25 +92,29 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
 
 /// Reads one app's feed file with the signed-in user's token (read-only, like every Hive app).
 public struct HiveFeedReader: Sendable {
-    let client: GitHubClient
-    let repo: String
-    let branch: String
+    /// The raw `<app>.json` bytes, or nil when the file doesn't exist yet.
+    public typealias Fetch = @Sendable (_ app: String) async throws -> Data?
+    let fetch: Fetch
 
     public init(client: GitHubClient, repo: String = "ndabney562/hivemind", branch: String = "hive") {
-        self.client = client
-        self.repo = repo
-        self.branch = branch
+        self.fetch = { app in
+            guard let data = try await client.rest("/repos/\(repo)/contents/\(app).json?ref=\(branch)", missing: [404]) else {
+                return nil
+            }
+            let wrapped = try JSONDecoder().decode(Contents.self, from: data)
+            guard let file = Data(base64Encoded: wrapped.content, options: .ignoreUnknownCharacters) else {
+                throw FetchError.github(status: 200, message: "not base64")
+            }
+            return file
+        }
     }
+
+    /// Any other source of the feed files, e.g. HiveMind's iPhone asking its Mac hub (it holds no GitHub token).
+    public init(fetch: @escaping Fetch) { self.fetch = fetch }
 
     /// nil when the file (or the branch) doesn't exist yet, or its schema is unknown.
     public func read<S: Decodable & Sendable>(_ app: String, as type: S.Type) async throws -> HiveFeedEnvelope<S>? {
-        guard let data = try await client.rest("/repos/\(repo)/contents/\(app).json?ref=\(branch)", missing: [404]) else {
-            return nil
-        }
-        let wrapped = try JSONDecoder().decode(Contents.self, from: data)
-        guard let file = Data(base64Encoded: wrapped.content, options: .ignoreUnknownCharacters) else {
-            throw FetchError.github(status: 200, message: "not base64")
-        }
+        guard let file = try await fetch(app) else { return nil }
         return try HiveFeed.decode(file, as: type)
     }
 }
