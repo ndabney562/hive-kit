@@ -4,7 +4,7 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 
 - **Repo URL:** https://github.com/ndabney562/hive-kit (public)
 - **Branch:** main (feature branches and PRs)
-- **Test command:** `swift test && sh scripts/testflight.test.sh` (from the repo root)
+- **Test command:** `swift test && sh scripts/testflight.test.sh && sh scripts/asc_check.test.sh` (from the repo root)
 - **Stack:** Swift 6 package, Foundation only (Keychain code only where `Security` exists), macOS and Linux CI.
 
 ## Rules
