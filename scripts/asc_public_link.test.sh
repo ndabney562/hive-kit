@@ -36,6 +36,17 @@ grep -q '"id": "B1"' "$t/log" && ! grep -q '"id": "B2"' "$t/log" || fail "only t
 echo "$out" | grep -q "public link: https://testflight.apple.com/join/abc" || fail "prints the link: $out"
 # Source with no contact: stop, write nothing.
 rm "$t/log"; sed 's/"n@x"/null/' "$t/fake.json" > "$t/nc.json"
-HIVE_ASC_FAKE="$t/nc.json" run >/dev/null 2>&1 && fail "no contact to copy should fail"
+(HIVE_ASC_FAKE="$t/nc.json"; run >/dev/null 2>&1) && fail "no contact to copy should fail"
 [ -f "$t/log" ] && fail "no contact: nothing written"
+# Codex round 1: Apple's 204 has no body; nested apps (HiveMind: apps/ios); a localization missing fields is
+# filled; a REJECTED build is a failure, not "already submitted".
+python3 -I -c "import sys; sys.path.insert(0, '$here'); import asc_check; assert asc_check.parse(b'') == {} and asc_check.parse(b'{\"a\": 1}') == {'a': 1}" || fail "empty 204 body"
+mkdir -p "$t/mono/apps/ios"; cp -R "$t/app/Config" "$t/app/Shop.xcodeproj" "$t/mono/apps/ios/"
+rm -f "$t/log"; out=$(python3 -I "$here/asc_public_link.py" "$t/mono" --group Surprise --description Hi --contact-from com.x.src) || fail "nested app: $out"
+sed 's|"GET /v1/apps/A/betaAppLocalizations": \[200, {"data": \[\]}\]|"GET /v1/apps/A/betaAppLocalizations": [200, {"data": [{"id": "L", "attributes": {"locale": "en-US", "description": null, "feedbackEmail": null}}]}], "PATCH /v1/betaAppLocalizations/L": [200, {"data": {}}]|' "$t/fake.json" > "$t/loc.json"
+rm -f "$t/log"; (HIVE_ASC_FAKE="$t/loc.json"; run >/dev/null) || fail "partial localization run"
+grep -q '"path": "/v1/betaAppLocalizations/L"' "$t/log" && grep -q '"description": "Hi"' "$t/log" && grep -q '"feedbackEmail": "f@x"' "$t/log" || fail "partial localization patched: $(cat "$t/log")"
+sed 's|"POST /v1/betaAppReviewSubmissions"|"GET /v1/builds/B1/betaAppReviewSubmission": [200, {"data": {"attributes": {"betaReviewState": "REJECTED"}}}], "POST /v1/betaAppReviewSubmissions"|' "$t/fake.json" > "$t/rej.json"
+out=$(HIVE_ASC_FAKE="$t/rej.json"; run) && fail "rejected build should fail"
+echo "$out" | grep -q "REJECTED" || fail "rejected message: $out"
 echo "asc_public_link: all checks passed"

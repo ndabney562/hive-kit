@@ -55,6 +55,7 @@ def app_id(st, bundle):
 
 
 def run(repo, group, description, contact_from, dry):
+    repo = asc_check.project_dir(os.path.abspath(repo))  # HiveMind keeps its app in apps/ios
     text = open(os.path.join(repo, "Config", "Signing.xcconfig"), encoding="utf-8").read()
     key_id, issuer = asc_check.setting(text, "ASC_KEY_ID"), asc_check.setting(text, "ASC_ISSUER_ID")
     key_file = os.path.expanduser("~/.appstoreconnect/private_keys/AuthKey_%s.p8" % key_id)
@@ -74,14 +75,25 @@ def run(repo, group, description, contact_from, dry):
         st.write("PATCH", "/v1/betaAppReviewDetails/%s" % detail["id"],
                  {"data": {"type": "betaAppReviewDetails", "id": detail["id"],
                            "attributes": {k: have[k] for k in CONTACT}}}, "copy the review contact from " + contact_from)
-    if not st.get("/v1/apps/%s/betaAppLocalizations" % app):
-        loc = st.get("/v1/apps/%s/betaAppLocalizations" % src)
-        email = loc[0]["attributes"].get("feedbackEmail") if loc else None
-        st.write("POST", "/v1/betaAppLocalizations",
-                 {"data": {"type": "betaAppLocalizations",
-                           "attributes": {"locale": "en-US", "description": description, "feedbackEmail": email},
-                           "relationships": {"app": {"data": {"type": "apps", "id": app}}}}},
-                 "add the beta description and feedback email")
+    loc = st.get("/v1/apps/%s/betaAppLocalizations" % app)
+    mine = next((x for x in loc if x["attributes"].get("locale") == "en-US"), loc[0] if loc else None)
+    have = (mine or {}).get("attributes", {})
+    if not (have.get("description") and have.get("feedbackEmail")):
+        theirs = st.get("/v1/apps/%s/betaAppLocalizations" % src)
+        email = have.get("feedbackEmail") or (theirs[0]["attributes"].get("feedbackEmail") if theirs else None)
+        if not email:
+            print("asc_public_link: no feedback email to copy from %s" % contact_from)
+            return 2
+        fields = {"description": have.get("description") or description, "feedbackEmail": email}
+        if mine:
+            st.write("PATCH", "/v1/betaAppLocalizations/%s" % mine["id"],
+                     {"data": {"type": "betaAppLocalizations", "id": mine["id"], "attributes": fields}},
+                     "fill the beta description and feedback email")
+        else:
+            st.write("POST", "/v1/betaAppLocalizations",
+                     {"data": {"type": "betaAppLocalizations", "attributes": dict(locale="en-US", **fields),
+                               "relationships": {"app": {"data": {"type": "apps", "id": app}}}}},
+                     "add the beta description and feedback email")
 
     # 2. The external group with a public link.
     groups = [g for g in st.get("/v1/apps/%s/betaGroups" % app) if g["attributes"].get("name") == group]
@@ -110,6 +122,10 @@ def run(repo, group, description, contact_from, dry):
     status, data = st.c.call("GET", "/v1/builds/%s/betaAppReviewSubmission" % b["id"])
     review = (data or {}).get("data") if status == 200 else None  # 404: never submitted
     state = (review or {}).get("attributes", {}).get("betaReviewState")
+    if state == "REJECTED":
+        print("asc_public_link: Apple REJECTED build %s in beta review; read the reason in App Store Connect > "
+              "TestFlight, fix it and upload a new build" % b["attributes"]["version"])
+        return 1
     if state:
         print("beta review: %s (already submitted)" % state)
     else:
