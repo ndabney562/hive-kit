@@ -78,6 +78,18 @@ public struct ScoreSummary: Decodable, Equatable, Sendable {
     public var topFixes: [Fix]
 }
 
+/// The AI business (`ai-business-db.json`): the 90-day income challenge and each earning route.
+public struct BusinessSummary: Decodable, Equatable, Sendable {
+    public struct Route: Decodable, Equatable, Sendable { public var name: String; public var status: String; public var earnedUsd: Double? }
+    public struct Checkpoint: Decodable, Equatable, Sendable { public var date: String; public var title: String }
+    public var day: Int
+    public var daysTotal: Int
+    public var ends: String
+    public var earnedUsd: Double
+    public var routes: [Route]
+    public var nextCheckpoint: Checkpoint?
+}
+
 /// Reads one app's feed file with the signed-in user's token (read-only, like every Hive app).
 public struct HiveFeedReader: Sendable {
     let client: GitHubClient

@@ -1,0 +1,6 @@
+{"schema": 1, "app": "ai-business-db", "written_at": "2026-11-09T17:00:00Z", "stale_after_minutes": 360,
+ "detail": {"repo": "ndabney562/ai-business-db", "branch": "main", "path": "plans/90-day-challenge.md"},
+ "summary": {"day": 1, "days_total": 90, "ends": "2027-02-06", "earned_usd": 12.5,
+             "routes": [{"name": "Dink & Paw", "status": "24 listings live", "earned_usd": 12.5},
+                        {"name": "Clipping", "status": "3 clips pending", "earned_usd": null}],
+             "next_checkpoint": {"date": "2026-12-01", "title": "route review"}}}
