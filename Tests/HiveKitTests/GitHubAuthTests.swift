@@ -299,6 +299,39 @@ struct GitHubAuthTests {
         #expect(safe.read() == other)
     }
 
+    /// Codex, PR #18 round 2: callers that joined a refresh also lose to another app's sign-out.
+    @Test func callersJoiningARefreshHonourAnotherAppsSignOut() async throws {
+        let reply = json(tokenReply)
+        let open = Mutex(false)
+        let stub = StubTransport { _ in
+            while !open.withLock({ $0 }) { try? await Task.sleep(for: .milliseconds(5)) }
+            return reply
+        }
+        let safe = SharedTokenSafe(shared: MemorySafe(expiring(in: 60)), own: MemorySafe())
+        let keeper = TokenKeeper(flow: flow(stub), safe: safe)
+        let first = Task { try await keeper.accessToken() }
+        while stub.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+        let joined = Task { try await keeper.accessToken() }
+        try await Task.sleep(for: .milliseconds(30))
+        safe.clear()   // another app signs out: this keeper's own session never changes
+        open.withLock { $0 = true }
+        #expect((try? await first.value) == nil)
+        #expect((try? await joined.value) == nil, "a joined caller must not get a token after another app's sign-out")
+        #expect(safe.read() == nil)
+    }
+
+    /// Codex, PR #18 round 2: the check and the save are one step, so a sign-out between them still wins.
+    @Test func replaceSavesOnlyOverTheExpectedToken() throws {
+        let old = expiring(in: 60), new = Token(accessToken: "ghu_new", expiresAt: nil, refreshToken: nil,
+                                                refreshExpiresAt: nil)
+        let safe = SharedTokenSafe(shared: MemorySafe(old), own: MemorySafe())
+        #expect(try safe.replace(old, with: new))
+        #expect(safe.read() == new)
+        safe.clear()
+        #expect(try !safe.replace(new, with: old))
+        #expect(safe.read() == nil)
+    }
+
     #if canImport(Security)
     @Test func keychainRoundTrip() throws {
         let safe = KeychainTokenSafe(service: "com.noahdabney.hivekit.tests.\(UUID().uuidString)")
@@ -308,6 +341,10 @@ struct GitHubAuthTests {
         try safe.write(token)
         try safe.write(token)  // a refresh replaces the old token
         #expect(safe.read() == token)
+        let fresh = Token(accessToken: "ghu_fresh", expiresAt: nil, refreshToken: nil, refreshExpiresAt: nil)
+        #expect(try safe.replace(token, with: fresh))
+        #expect(try !safe.replace(token, with: token))  // the stored token is `fresh` now: no match, no save
+        #expect(safe.read() == fresh)
         safe.clear()
         #expect(safe.read() == nil)
     }
