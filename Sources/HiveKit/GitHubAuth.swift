@@ -146,7 +146,53 @@ public protocol TokenSafe: Sendable {
     func clear()
 }
 
+/// One GitHub sign-in for every Hive app (Noah, 2026-11-09: "sign in once"). Reads the shared token first, then
+/// the app's own older one, which it moves into the shared store. Saves to the shared store, or to the app's own when
+/// sharing fails (e.g. a simulator build without the Keychain group). Sign-out clears both, so it signs out every app.
+public struct SharedTokenSafe: TokenSafe {
+    let shared: any TokenSafe
+    let own: any TokenSafe
+
+    public init(shared: any TokenSafe, own: any TokenSafe) {
+        self.shared = shared
+        self.own = own
+    }
+
+    public func read() -> Token? {
+        if let token = shared.read() { return token }
+        guard let token = own.read() else { return nil }
+        if (try? shared.write(token)) != nil { own.clear() }  // moved: the other Hive apps see it now
+        return token
+    }
+
+    public func write(_ token: Token) throws {
+        do {
+            try shared.write(token)
+            own.clear()
+        } catch {
+            try own.write(token)
+        }
+    }
+
+    public func clear() {
+        shared.clear()
+        own.clear()
+    }
+}
+
 #if canImport(Security)
+extension SharedTokenSafe {
+    /// The Keychain store every Hive app shares, plus the app's own (`service` = its bundle id). The group name comes
+    /// from the app's Info.plist key `HiveKeychainGroup` (`$(AppIdentifierPrefix)com.noahdabney.hive`), which must
+    /// match a `keychain-access-groups` entitlement; without the key the app keeps its own token, as before.
+    public static func hive(service: String, bundle: Bundle = .main) -> any TokenSafe {
+        let own = KeychainTokenSafe(service: service)
+        guard let group = bundle.object(forInfoDictionaryKey: "HiveKeychainGroup") as? String,
+              !group.isEmpty, !group.hasPrefix("$(") else { return own }
+        return SharedTokenSafe(shared: KeychainTokenSafe(service: "com.noahdabney.hive", accessGroup: group), own: own)
+    }
+}
+
 public struct KeychainError: Error, Equatable {
     public let status: OSStatus
     public init(status: OSStatus) { self.status = status }
@@ -159,7 +205,8 @@ public struct KeychainTokenSafe: TokenSafe {
     let accessGroup: String?
     static let account = "github"
 
-    /// `service` is the app's own Keychain name (e.g. "com.noahdabney.hivetempo"), so apps never share a token.
+    /// `service` is the Keychain name (an app's own, e.g. "com.noahdabney.hivetempo", or the shared
+    /// "com.noahdabney.hive" with the Hive `accessGroup`; see `SharedTokenSafe.hive`).
     public init(service: String, accessGroup: String? = nil) {
         self.service = service
         self.accessGroup = accessGroup
@@ -278,6 +325,9 @@ public actor TokenKeeper {
             return fresh
         } catch AuthError.signedOut {
             guard session == started else { throw AuthError.signedOut }
+            // Hive apps share one token and a refresh token works once: if another app refreshed first, its new
+            // token is saved already. Use it instead of signing every app out.
+            if let current = safe.read(), current.accessToken != token.accessToken { return current }
             safe.clear()
             throw AuthError.signedOut
         }

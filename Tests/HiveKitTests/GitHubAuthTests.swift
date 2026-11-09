@@ -217,6 +217,43 @@ struct GitHubAuthTests {
         #expect(await !keeper.isSignedIn)
     }
 
+    // Sign in once (Noah, 2026-11-09): HiveScore and HiveTempo share one GitHub sign-in.
+    @Test func sharedSafeMovesAnAppsOwnTokenIntoTheSharedOne() throws {
+        let own = MemorySafe(expiring(in: 3600)), shared = MemorySafe()
+        let safe = SharedTokenSafe(shared: shared, own: own)
+        #expect(safe.read()?.accessToken == "ghu_old")
+        #expect(shared.read()?.accessToken == "ghu_old")
+        #expect(own.read() == nil)
+    }
+
+    @Test func sharedSafeFallsBackToTheAppsOwnWhenSharingFails() throws {
+        let own = MemorySafe(), safe = SharedTokenSafe(shared: BrokenSafe(), own: own)
+        try safe.write(expiring(in: 3600))
+        #expect(own.read()?.accessToken == "ghu_old")
+        #expect(safe.read()?.accessToken == "ghu_old")
+    }
+
+    @Test func sharedSafeSignOutClearsBoth() throws {
+        let own = MemorySafe(expiring(in: 3600)), shared = MemorySafe(expiring(in: 3600))
+        SharedTokenSafe(shared: shared, own: own).clear()
+        #expect(own.read() == nil && shared.read() == nil)
+    }
+
+    /// Two apps share one token; refresh tokens work once. When the other app refreshed first, GitHub turns this
+    /// app's refresh down: use the other app's new token, never sign both apps out.
+    @Test func anotherAppsRefreshWinsInsteadOfSigningOut() async throws {
+        let safe = MemorySafe(expiring(in: 60))
+        let other = Token(accessToken: "ghu_other", expiresAt: clock.now().addingTimeInterval(28800),
+                          refreshToken: "ghr_other", refreshExpiresAt: clock.now().addingTimeInterval(86400 * 180))
+        let stub = StubTransport { _ in
+            try safe.write(other)  // the other app saved its refresh while this one was asking GitHub
+            return json(["error": "bad_refresh_token"])
+        }
+        let keeper = TokenKeeper(flow: flow(stub), safe: safe)
+        #expect(try await keeper.accessToken() == "ghu_other")
+        #expect(safe.read() == other)
+    }
+
     #if canImport(Security)
     @Test func keychainRoundTrip() throws {
         let safe = KeychainTokenSafe(service: "com.noahdabney.hivekit.tests.\(UUID().uuidString)")
