@@ -61,9 +61,14 @@ class Client:
                                               "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                return r.status, json.load(r)
+                return r.status, parse(r.read())
         except urllib.error.HTTPError as e:
             return e.code, {"errors": [{"detail": e.read().decode()[:300]}]}
+
+
+def parse(raw):
+    """A response body as JSON; Apple's 204 (relationship updates) has none."""
+    return json.loads(raw) if raw.strip() else {}
 
 
 def setting(text, name):
