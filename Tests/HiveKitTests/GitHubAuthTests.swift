@@ -235,8 +235,10 @@ struct GitHubAuthTests {
 
     @Test func sharedSafeSignOutClearsBoth() throws {
         let own = MemorySafe(expiring(in: 3600)), shared = MemorySafe(expiring(in: 3600))
-        SharedTokenSafe(shared: shared, own: own).clear()
-        #expect(own.read() == nil && shared.read() == nil)
+        let safe = SharedTokenSafe(shared: shared, own: own)
+        safe.clear()
+        #expect(own.read() == nil && safe.read() == nil)
+        #expect(shared.read() == SharedTokenSafe.signedOut)  // a marker, so no app's old token moves back in
     }
 
     /// Two apps share one token; refresh tokens work once. When the other app refreshed first, GitHub turns this
@@ -251,6 +253,49 @@ struct GitHubAuthTests {
         }
         let keeper = TokenKeeper(flow: flow(stub), safe: safe)
         #expect(try await keeper.accessToken() == "ghu_other")
+        #expect(safe.read() == other)
+    }
+
+    /// Codex, PR #18: a sign-out in one app must not be undone by another app's older own token.
+    @Test func aSharedSignOutIsNotUndoneByAnotherAppsOldToken() throws {
+        let shared = MemorySafe(), ownB = MemorySafe(expiring(in: 3600))
+        SharedTokenSafe(shared: shared, own: MemorySafe()).clear()   // app A signs out
+        let b = SharedTokenSafe(shared: shared, own: ownB)
+        #expect(b.read() == nil)
+        #expect(ownB.read() == nil)
+        try b.write(expiring(in: 3600))                               // signing in again works
+        #expect(SharedTokenSafe(shared: shared, own: MemorySafe()).read()?.accessToken == "ghu_old")
+    }
+
+    @Test func readingTheSharedTokenDropsTheAppsStaleOwnCopy() throws {
+        let shared = MemorySafe(expiring(in: 3600)), own = MemorySafe(expiring(in: 3600))
+        _ = SharedTokenSafe(shared: shared, own: own).read()
+        #expect(own.read() == nil)
+    }
+
+    /// Codex, PR #18: a refresh that finishes after another app signed out must not sign every app back in.
+    @Test func aRefreshFinishingAfterAnotherAppsSignOutIsDropped() async throws {
+        let safe = SharedTokenSafe(shared: MemorySafe(expiring(in: 60)), own: MemorySafe())
+        let reply = json(tokenReply)
+        let stub = StubTransport { _ in
+            safe.clear()   // the other app signs out while this refresh is in flight
+            return reply
+        }
+        let keeper = TokenKeeper(flow: flow(stub), safe: safe)
+        await #expect(throws: AuthError.signedOut) { try await keeper.accessToken() }
+        #expect(safe.read() == nil)
+    }
+
+    @Test func aRefreshFinishingAfterAnotherAppsNewSignInKeepsTheNewSignIn() async throws {
+        let safe = MemorySafe(expiring(in: 60))
+        let other = Token(accessToken: "ghu_other", expiresAt: clock.now().addingTimeInterval(28800),
+                          refreshToken: "ghr_other", refreshExpiresAt: clock.now().addingTimeInterval(86400 * 180))
+        let reply = json(tokenReply)
+        let stub = StubTransport { _ in
+            try safe.write(other)
+            return reply
+        }
+        #expect(try await TokenKeeper(flow: flow(stub), safe: safe).accessToken() == "ghu_other")
         #expect(safe.read() == other)
     }
 

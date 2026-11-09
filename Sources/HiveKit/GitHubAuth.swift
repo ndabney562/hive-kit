@@ -158,8 +158,15 @@ public struct SharedTokenSafe: TokenSafe {
         self.own = own
     }
 
+    /// What the shared store holds after a sign-out: a marker, not an empty store, so an app's older own token is
+    /// never moved back in and every app stays signed out (Codex, PR #18).
+    static let signedOut = Token(accessToken: "", expiresAt: nil, refreshToken: nil, refreshExpiresAt: nil)
+
     public func read() -> Token? {
-        if let token = shared.read() { return token }
+        if let token = shared.read() {
+            own.clear()  // the shared token (or the sign-out marker) wins over a stale own copy
+            return token.accessToken.isEmpty ? nil : token
+        }
         guard let token = own.read() else { return nil }
         if (try? shared.write(token)) != nil { own.clear() }  // moved: the other Hive apps see it now
         return token
@@ -175,7 +182,7 @@ public struct SharedTokenSafe: TokenSafe {
     }
 
     public func clear() {
-        shared.clear()
+        if (try? shared.write(Self.signedOut)) == nil { shared.clear() }
         own.clear()
     }
 }
@@ -321,6 +328,10 @@ public actor TokenKeeper {
             let fresh = try await task.value
             // Saved on the actor, after the await: a sign-out in between wins.
             guard session == started else { throw AuthError.signedOut }
+            // Another Hive app may have signed out or signed in again meanwhile (shared store, Codex PR #18): save
+            // only over the token this refresh started from.
+            guard let current = safe.read() else { throw AuthError.signedOut }
+            if current.accessToken != token.accessToken { return current }
             try safe.write(fresh)
             return fresh
         } catch AuthError.signedOut {
