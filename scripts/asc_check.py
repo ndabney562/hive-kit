@@ -4,7 +4,8 @@ an app record for it. Every new Hive app missed this step (Noah, 2026-11-09), so
 archive and hive-test-all.sh runs it for every iPhone repo.
 
 Usage: python3 -I asc_check.py <app repo dir> [--no-register]
-  Reads PRODUCT_BUNDLE_IDENTIFIER from <repo>/*.xcodeproj and the API key from <repo>/Config/Signing.xcconfig
+  Reads PRODUCT_BUNDLE_IDENTIFIER from the .xcodeproj in <repo> (or the shallowest one up to 3 folders down) and the
+  API key from Config/Signing.xcconfig next to it
   (ASC_KEY_ID, ASC_ISSUER_ID; key file ~/.appstoreconnect/private_keys/AuthKey_<id>.p8).
   A missing bundle ID is registered (what Xcode would do); --no-register only reports it.
 Exit: 0 ready, 1 not ready (the steps for Noah are printed), 2 no API key or bundle ID to check with.
@@ -70,6 +71,24 @@ def setting(text, name):
     return m[-1] if m else ""
 
 
+SKIP_DIRS = {".build", "build", "DerivedData", "node_modules", ".git", "Pods"}
+
+
+def project_dir(repo):
+    """The folder holding the app's .xcodeproj: the repo itself, or the shallowest subfolder up to 3 levels down
+    (HiveMind keeps it in apps/ios; missed until 2026-11-09). Build output folders are skipped."""
+    for depth in range(4):
+        found = []
+        for root, dirs, _ in os.walk(repo):
+            level = os.path.relpath(root, repo).count(os.sep) + (root != repo)
+            dirs[:] = [] if level >= depth else [d for d in dirs if d not in SKIP_DIRS and not d.endswith(".xcodeproj")]
+            if level == depth and glob.glob(os.path.join(root, "*.xcodeproj")):
+                found.append(root)
+        if found:
+            return sorted(found)[0]
+    return repo
+
+
 def bundle_id(repo):
     ids = set()
     for p in glob.glob(os.path.join(repo, "*.xcodeproj", "project.pbxproj")):
@@ -87,7 +106,7 @@ def main(argv):
     if not argv or argv[0].startswith("-"):
         print(__doc__.strip().splitlines()[3], file=sys.stderr)
         return 2
-    repo, register = os.path.abspath(argv[0]), "--no-register" not in argv
+    repo, register = project_dir(os.path.abspath(argv[0])), "--no-register" not in argv
     bid, name = bundle_id(repo), name_of(repo)
     if not bid:
         print(f"asc_check: no PRODUCT_BUNDLE_IDENTIFIER in {repo}/*.xcodeproj", file=sys.stderr)
