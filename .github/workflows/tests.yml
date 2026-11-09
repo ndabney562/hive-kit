@@ -10,6 +10,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   swift:
+    # macOS runners never picked this job up (cancelled after 15 min queued, 0 steps, every run 2026-11-09), so it
+    # runs by hand before a release (`gh workflow run tests --ref main`); `swift test` runs locally on the Mac anyway.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     timeout-minutes: 15
     steps:
