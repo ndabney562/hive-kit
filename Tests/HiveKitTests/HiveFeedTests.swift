@@ -36,6 +36,11 @@ struct HiveFeedTests {
         #expect(score?.summary.topFixes[0].points == 40)
         #expect(score?.summary.capped == true)
         #expect(score?.app == "health-score")
+        let business = try HiveFeed.decode(fixture("ai-business-db"), as: BusinessSummary.self)
+        #expect(business?.summary.daysTotal == 90)
+        #expect(business?.summary.routes.first?.earnedUsd == 12.5)
+        #expect(business?.summary.routes.last?.earnedUsd == nil)
+        #expect(business?.summary.nextCheckpoint?.title == "route review")
     }
 
     @Test func unknownFieldsIgnored() throws {
