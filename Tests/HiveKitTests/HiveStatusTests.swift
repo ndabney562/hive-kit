@@ -68,4 +68,26 @@ struct HiveStatusTests {
         #expect(rows[1].line.hasPrefix("\(want) · "))
         #expect(!stub.requests.contains { $0.url!.absoluteString.contains("hive-tempo.json") })
     }
+
+    /// HiveMind's iPhone reads the feed through its Mac hub, not GitHub (GLOBAL-TODO Hive step 2, 2026-11-09).
+    @Test func readerTakesAnySource() async throws {
+        let feed = HiveFeedTests()
+        let score = try feed.fixture("health-score")
+        let asked = Asked()
+        let reader = HiveFeedReader { name in
+            await asked.add(name)
+            if name == "hive-tempo" { throw URLError(.timedOut) }
+            return name == "health-score" ? score : nil
+        }
+        let rows = await reader.statuses(except: .mind, now: now)
+        #expect(rows.map(\.app) == [.score, .tempo])
+        #expect(rows[0].line.hasPrefix("\(try #require(try HiveFeed.decode(score, as: ScoreSummary.self)).summary.score) · "))
+        #expect(rows[1].line == "No status yet")
+        #expect(await asked.names.sorted() == ["health-score", "hive-tempo"])
+    }
+}
+
+actor Asked {
+    var names: [String] = []
+    func add(_ n: String) { names.append(n) }
 }
