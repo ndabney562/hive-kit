@@ -59,6 +59,12 @@ struct GitHubClientTests {
         await #expect(throws: FetchError.offline) { try await client(stub).rest("/repos/o/r") }
     }
 
+    /// A cancelled request (SwiftUI's pull-to-refresh cancels its task) is not "no internet" (HiveTempo, 2026-11-11).
+    @Test func cancelledIsNotOffline() async throws {
+        let stub = StubTransport { _ in throw URLError(.cancelled) }
+        await #expect(throws: CancellationError.self) { try await client(stub).rest("/repos/o/r") }
+    }
+
     @Test func a401RefreshesOnceAndRetries() async throws {
         let stub = StubTransport { request in
             request.value(forHTTPHeaderField: "Authorization") == "Bearer ghu_new" ? json([:]) : json([:], status: 401)

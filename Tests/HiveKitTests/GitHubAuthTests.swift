@@ -193,6 +193,13 @@ struct GitHubAuthTests {
         }
     }
 
+    @Test func cancelledRefreshIsNotOffline() async throws {
+        let safe = MemorySafe(expiring(in: 60))
+        let keeper = TokenKeeper(flow: flow(StubTransport { _ in throw URLError(.cancelled) }), safe: safe)
+        await #expect(throws: CancellationError.self) { try await keeper.accessToken() }
+        #expect(safe.read()?.accessToken == "ghu_old")
+    }
+
     @Test func offlineRefreshKeepsTheToken() async throws {
         let safe = MemorySafe(expiring(in: 60))
         let keeper = TokenKeeper(flow: flow(StubTransport { _ in throw URLError(.notConnectedToInternet) }), safe: safe)

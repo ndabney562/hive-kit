@@ -131,6 +131,8 @@ public struct DeviceFlow: Sendable {
         let reply: HTTPReply
         do {
             reply = try await transport.send(.form(url, fields))
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()  // the caller's task was cancelled, not the network
         } catch is URLError {
             throw AuthError.offline
         }
