@@ -56,4 +56,6 @@ rm -f "$t/log"; out=$(HIVE_ASC_FAKE="$t/ok.json" python3 -I "$here/asc_public_li
 [ "$out" = '{"bundle": "com.x.shop", "build": "1", "state": "APPROVED", "public_link": "https://testflight.apple.com/join/abc"}' ] || fail "status line: $out"
 out=$(python3 -I "$here/asc_public_link.py" "$t/app" --status --group Surprise) || fail "status, never submitted: $out"
 echo "$out" | grep -q '"state": "NOT_SUBMITTED", "public_link": null' || fail "never submitted, no group: $out"
+sed 's|"GET /v1/builds/B1/betaAppReviewSubmission": \[200, {"data": {"attributes": {"betaReviewState": "APPROVED"}}}\]|"GET /v1/builds/B1/betaAppReviewSubmission": [503, {"errors": [{"detail": "down"}]}]|' "$t/ok.json" > "$t/down.json"
+out=$(HIVE_ASC_FAKE="$t/down.json" python3 -I "$here/asc_public_link.py" "$t/app" --status --group Surprise) && fail "a 503 must fail, not say NOT_SUBMITTED: $out"
 echo "asc_public_link: all checks passed"

@@ -86,6 +86,9 @@ def status(repo, group):
     if builds:
         b = builds[0]
         s, data = c.call("GET", "/v1/builds/%s/betaAppReviewSubmission" % b["id"])
+        if s not in (200, 404):  # 404 = never submitted; anything else is a failure, not "NOT_SUBMITTED"
+            print(Steps.fail("GET beta review of build %s" % b["attributes"].get("version"), s, data or {}))
+            return 1
         review = (data or {}).get("data") if s == 200 else None
         out["build"] = b["attributes"].get("version")
         out["state"] = (review or {}).get("attributes", {}).get("betaReviewState") or "NOT_SUBMITTED"
