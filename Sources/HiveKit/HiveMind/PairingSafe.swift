@@ -77,13 +77,17 @@ public struct KeychainPairingStore: PairingStore {
         return try? JSONDecoder().decode(HubConfig.self, from: data)
     }
 
+    /// Updates the item in place and adds it only when none exists, so a failed save keeps the old pairing.
     public func write(_ config: HubConfig) throws {
-        clear()
+        let data = try JSONEncoder().encode(config)
+        let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecSuccess { return }
+        guard status == errSecItemNotFound else { throw KeychainError(status: status) }
         var q = query
-        q[kSecValueData as String] = try JSONEncoder().encode(config)
+        q[kSecValueData as String] = data
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(q as CFDictionary, nil)
-        if status != errSecSuccess { throw KeychainError(status: status) }
+        let added = SecItemAdd(q as CFDictionary, nil)
+        if added != errSecSuccess { throw KeychainError(status: added) }
     }
 
     public func clear() {

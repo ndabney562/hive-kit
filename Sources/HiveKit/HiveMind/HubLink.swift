@@ -86,7 +86,10 @@ public struct HubLink: Sendable {
         var start = Self.request("POST", "/api/run", config: config, timeout: 30)
         start.httpBody = try JSONEncoder().encode(Body(task: task, project: project))
         let startReply = try await perform(start)
-        guard let started = try? JSONDecoder().decode(Started.self, from: startReply) else {
+        // The hub answers `{"job_id": ...}` (docs/api/v1.md), as HiveMind's HubClient decodes it.
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let started = try? decoder.decode(Started.self, from: startReply) else {
             throw HubLinkError.badResponse
         }
         struct Job: Decodable {
@@ -99,7 +102,7 @@ public struct HubLink: Sendable {
             var poll = Self.request("GET", "/api/job", config: config, timeout: 5)
             poll.url = Self.url(config, "/api/job", query: [URLQueryItem(name: "id", value: started.jobId)])
             let pollReply = try await perform(poll)
-            guard let job = try? JSONDecoder().decode(Job.self, from: pollReply) else {
+            guard let job = try? decoder.decode(Job.self, from: pollReply) else {
                 throw HubLinkError.badResponse
             }
             if job.done {

@@ -50,7 +50,7 @@ final class MemoryPairingStore: PairingStore {
         let jobs = Mutex(0)
         let stub = StubTransport { request in
             switch request.url?.path {
-            case "/api/run": return json(["jobId": "j1"])
+            case "/api/run": return json(["job_id": "j1"])
             default:
                 let n = jobs.withLock { $0 += 1; return $0 }
                 return n == 1 ? json(["done": false]) : json(["done": true, "result": ["ok": true, "text": "answer"]])
@@ -68,7 +68,7 @@ final class MemoryPairingStore: PairingStore {
 
     @Test func askSendsProjectWhenGiven() async throws {
         let stub = StubTransport { request in
-            request.url?.path == "/api/run" ? json(["jobId": "j1"]) : json(["done": true, "result": ["ok": true, "text": "x"]])
+            request.url?.path == "/api/run" ? json(["job_id": "j1"]) : json(["done": true, "result": ["ok": true, "text": "x"]])
         }
         _ = try await fastLink(stub).ask("hi", project: "hive-kit")
         let body = try JSONSerialization.jsonObject(with: stub.requests[0].httpBody!) as! [String: Any]
@@ -77,7 +77,7 @@ final class MemoryPairingStore: PairingStore {
 
     @Test func askTimesOut() async {
         let stub = StubTransport { request in
-            request.url?.path == "/api/run" ? json(["jobId": "j1"]) : json(["done": false])
+            request.url?.path == "/api/run" ? json(["job_id": "j1"]) : json(["done": false])
         }
         await #expect(throws: HubLinkError.timedOut) {
             try await HubLink(config: config, transport: stub, pollEvery: .milliseconds(10), timeout: .milliseconds(50))
@@ -101,7 +101,7 @@ final class MemoryPairingStore: PairingStore {
             try await fastLink(bad).ask("hi", project: "x")
         }
         let failed = StubTransport { request in
-            request.url?.path == "/api/run" ? json(["jobId": "j1"])
+            request.url?.path == "/api/run" ? json(["job_id": "j1"])
                 : json(["done": true, "result": ["ok": false, "text": "HiveMind error: boom"]])
         }
         await #expect(throws: HubLinkError.failed("HiveMind error: boom")) { try await fastLink(failed).ask("hi", project: nil) }
@@ -129,7 +129,7 @@ final class MemoryPairingStore: PairingStore {
     @Test func cancelDuringPollIsCancellation() async {
         let polls = Mutex(0)
         let stub = StubTransport { request in
-            if request.url?.path == "/api/run" { return json(["jobId": "j1"]) }
+            if request.url?.path == "/api/run" { return json(["job_id": "j1"]) }
             polls.withLock { $0 += 1 }
             return json(["done": false])
         }
@@ -157,7 +157,7 @@ final class MemoryPairingStore: PairingStore {
 
     @Test func engineSendsInstructionsThenPrompt() async throws {
         let stub = StubTransport { request in
-            request.url?.path == "/api/run" ? json(["jobId": "j1"]) : json(["done": true, "result": ["ok": true, "text": "coach says"]])
+            request.url?.path == "/api/run" ? json(["job_id": "j1"]) : json(["done": true, "result": ["ok": true, "text": "coach says"]])
         }
         let answer = try await HubEngine(link: fastLink(stub)).answer("How was my week?", instructions: "You are a coach.")
         #expect(answer == "coach says")
@@ -177,13 +177,22 @@ final class MemoryPairingStore: PairingStore {
         #expect(PairingSafe.load(from: store) == nil)
     }
 
-    @Test func pairingStoreIsSharedKeychainWhenGroupIsSet() {
+    #if canImport(Security)
+    @Test func pairingStoreNames() {
         // The account and service every Hive app and HiveMind agree on.
         #expect(KeychainPairingStore.account == "hivemind-pairing")
         #expect(KeychainPairingStore.service == "com.noahdabney.hive")
     }
 
-    #if canImport(Security)
+    @Test func pairingKeychainWriteReplaces() throws {
+        let store = KeychainPairingStore(service: "com.noahdabney.hivekit.tests.\(UUID().uuidString)", accessGroup: nil)
+        defer { store.clear() }
+        try store.write(config)
+        let other = HubConfig(baseURL: URL(string: "https://other.ts.net")!, key: "k_zzzzzzzzzzzzzzzzzzzzz")
+        try store.write(other)
+        #expect(store.read() == other)
+    }
+
     @Test func pairingKeychainRoundTrip() throws {
         let store = KeychainPairingStore(service: "com.noahdabney.hivekit.tests.\(UUID().uuidString)", accessGroup: nil)
         defer { store.clear() }
