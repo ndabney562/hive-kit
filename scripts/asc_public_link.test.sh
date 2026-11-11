@@ -49,4 +49,11 @@ grep -q '"path": "/v1/betaAppLocalizations/L"' "$t/log" && grep -q '"description
 sed 's|"POST /v1/betaAppReviewSubmissions"|"GET /v1/builds/B1/betaAppReviewSubmission": [200, {"data": {"attributes": {"betaReviewState": "REJECTED"}}}], "POST /v1/betaAppReviewSubmissions"|' "$t/fake.json" > "$t/rej.json"
 out=$(HIVE_ASC_FAKE="$t/rej.json"; run) && fail "rejected build should fail"
 echo "$out" | grep -q "REJECTED" || fail "rejected message: $out"
+# --status: read only, one JSON line with the newest VALID build's review state and the public link.
+sed 's|"GET /v1/apps/A/betaGroups": \[200, {"data": \[\]}\]|"GET /v1/apps/A/betaGroups": [200, {"data": [{"id": "G", "attributes": {"name": "Surprise", "publicLinkEnabled": true, "publicLink": "https://testflight.apple.com/join/abc"}}]}], "GET /v1/builds/B1/betaAppReviewSubmission": [200, {"data": {"attributes": {"betaReviewState": "APPROVED"}}}]|' "$t/fake.json" > "$t/ok.json"
+rm -f "$t/log"; out=$(HIVE_ASC_FAKE="$t/ok.json" python3 -I "$here/asc_public_link.py" "$t/app" --status --group Surprise) || fail "status: $out"
+[ -f "$t/log" ] && fail "status must write nothing"
+[ "$out" = '{"bundle": "com.x.shop", "build": "1", "state": "APPROVED", "public_link": "https://testflight.apple.com/join/abc"}' ] || fail "status line: $out"
+out=$(python3 -I "$here/asc_public_link.py" "$t/app" --status --group Surprise) || fail "status, never submitted: $out"
+echo "$out" | grep -q '"state": "NOT_SUBMITTED", "public_link": null' || fail "never submitted, no group: $out"
 echo "asc_public_link: all checks passed"
