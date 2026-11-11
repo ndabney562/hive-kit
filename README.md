@@ -20,6 +20,13 @@ The Hive apps' shared logic as one Swift package (Noah, 2026-11-07: "these proje
    exec sh "${HIVE_KIT:-$HOME/AI.Stuff/hive-kit}/scripts/testflight.sh" "$(cd "$(dirname "$0")/.." && pwd)" HiveRounds HiveRounds "$@"
    ```
 
+3. "How to use" guide (`Guide.swift`): ship `Guide.json` (`{"cards": [{"id", "title", "steps", "screen", "changed", "welcome"?}]}`) in the app target; hive-design 1.7.0 draws it. In the app's Kit tests, list the screens and run the shared check:
+   ```swift
+   let url = URL(filePath: #filePath).deletingLastPathComponent()  // up to the repo root, then <App>/Guide.json
+   let guide = try #require(Guide.load(try? Data(contentsOf: url)))
+   #expect(GuideCoverage.problems(guide, screens: GuideScreen.allCases.map(\.rawValue)) == [])
+   ```
+
 ## Change it
 
 1. Change it here, with a test. `swift test && sh scripts/testflight.test.sh && sh scripts/asc_check.test.sh && sh scripts/asc_public_link.test.sh`.
