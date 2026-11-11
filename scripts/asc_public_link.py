@@ -2,6 +2,10 @@
 """TestFlight public link for a Hive app: external group + newest valid build + beta review submission.
 
 Usage: python3 -I asc_public_link.py <repo> --group NAME --description TEXT --contact-from BUNDLE_ID [--dry-run]
+       python3 -I asc_public_link.py <repo> --status --group NAME
+--status reads only (never writes) and prints one JSON line: {"bundle", "build", "state", "public_link"}, where state is
+Apple's betaReviewState of the newest processed build (WAITING_FOR_REVIEW, IN_REVIEW, APPROVED, REJECTED) or
+NOT_SUBMITTED / NO_BUILD. HiveTempo's planner uses it to make the "reveal" task once Apple approves.
 
 Copies the beta review contact and feedback email from another app of the same account (--contact-from), only
 where the target has none (Noah's OK each time: it is his personal data). Prints the public link (it works once
@@ -54,15 +58,49 @@ def app_id(st, bundle):
     return apps[0]["id"]
 
 
-def run(repo, group, description, contact_from, dry):
+def client(repo):
+    """(project dir, Client), or (dir, None) after printing what is missing."""
     repo = asc_check.project_dir(os.path.abspath(repo))  # HiveMind keeps its app in apps/ios
     text = open(os.path.join(repo, "Config", "Signing.xcconfig"), encoding="utf-8").read()
     key_id, issuer = asc_check.setting(text, "ASC_KEY_ID"), asc_check.setting(text, "ASC_ISSUER_ID")
     key_file = os.path.expanduser("~/.appstoreconnect/private_keys/AuthKey_%s.p8" % key_id)
     if not (key_id and issuer and (os.path.exists(key_file) or os.environ.get("HIVE_ASC_FAKE"))):
         print("asc_public_link: set ASC_KEY_ID and ASC_ISSUER_ID in Config/Signing.xcconfig")
+        return repo, None
+    return repo, asc_check.Client(key_id, issuer, key_file)
+
+
+def status(repo, group):
+    """Read-only: the newest processed build's beta review state and the group's public link, as one JSON line."""
+    repo, c = client(repo)
+    if c is None:
         return 2
-    st = Steps(asc_check.Client(key_id, issuer, key_file), dry)
+    st = Steps(c, True)
+    bundle = asc_check.bundle_id(repo)
+    app = app_id(st, bundle)
+    g = [g for g in st.get("/v1/apps/%s/betaGroups" % app) if g["attributes"].get("name") == group]
+    link = g[0]["attributes"].get("publicLink") if g and g[0]["attributes"].get("publicLinkEnabled") else None
+    builds = [b for b in st.get("/v1/builds?filter[app]=%s&sort=-uploadedDate&limit=5" % app)
+              if b["attributes"].get("processingState") == "VALID"]
+    out = {"bundle": bundle, "build": None, "state": "NO_BUILD", "public_link": link}
+    if builds:
+        b = builds[0]
+        s, data = c.call("GET", "/v1/builds/%s/betaAppReviewSubmission" % b["id"])
+        if s not in (200, 404):  # 404 = never submitted; anything else is a failure, not "NOT_SUBMITTED"
+            print(Steps.fail("GET beta review of build %s" % b["attributes"].get("version"), s, data or {}))
+            return 1
+        review = (data or {}).get("data") if s == 200 else None
+        out["build"] = b["attributes"].get("version")
+        out["state"] = (review or {}).get("attributes", {}).get("betaReviewState") or "NOT_SUBMITTED"
+    print(json.dumps(out))
+    return 0
+
+
+def run(repo, group, description, contact_from, dry):
+    repo, c = client(repo)
+    if c is None:
+        return 2
+    st = Steps(c, dry)
     app, src = app_id(st, asc_check.bundle_id(repo)), app_id(st, contact_from)
 
     # 1. Review contact and feedback email, copied only where missing.
@@ -139,6 +177,12 @@ def run(repo, group, description, contact_from, dry):
 
 def main(argv):
     args = argv[1:]
+    if "--status" in args:
+        try:
+            return status(args[0], args[args.index("--group") + 1])
+        except (IndexError, ValueError):
+            print(__doc__.strip().splitlines()[3].strip())
+            return 2
     try:
         repo = args[0]
         opt = {args[i]: args[i + 1] for i in range(1, len(args) - 1) if args[i].startswith("--") and args[i] != "--dry-run"}
