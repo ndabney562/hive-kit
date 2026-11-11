@@ -89,6 +89,8 @@ public struct GitHubClient: Sendable {
                 if attempt == 0 { token = try await keeper.tokenAfterRejection(of: token) }
             }
             throw FetchError.signedOut
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()  // the caller's task was cancelled (pull-to-refresh), not the network
         } catch is URLError {
             throw FetchError.offline
         } catch AuthError.offline {
