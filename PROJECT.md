@@ -20,3 +20,4 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 - [x] HiveScore uses it (its own copies removed; gains HiveTempo's sign-out race fix)
 - [x] HiveMind's iOS app uses it where it overlaps
 - [x] Hive feed: three apps publish, one link live (spec 2026-11-08)
+- [x] "How to use" guide data and checks (`Guide`, `GuideLaunch`, `GuideCoverage`; 1.8.0, hive-design plan 2026-11-11-hive-guide)
