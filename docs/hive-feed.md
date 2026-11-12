@@ -7,7 +7,7 @@ fixtures).
 ## Where
 
 Branch `hive` of the private repo `ndabney562/hivemind`, one file per app: `<app>.json`, where `<app>` is the app's
-repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`). Only the Mac writes, always through HiveMind:
+repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`; `iphone` is the Mac's weekly iPhone scan, not a repo). Only the Mac writes, always through HiveMind:
 
     hivemind feed publish <app> <file>     # validates, then commits on top of the branch and pushes
     hivemind feed show [app] [--json]      # one line per app, stale ones marked; --json prints the file
@@ -48,6 +48,9 @@ ones); removing a field or changing its meaning bumps `schema`.
 | hiveworld | `pick` | project ids most in need first (paused and finished never listed); read by HiveTempo |
 | hiveworld | `projects[]` | per repo: `id` (owner/repo), `name`, `score`, `momentum` {`weekly`[12], `usual`, `change_pct`, `status`}, `progress` {`done`, `total`, `forecast`}, `next_step`, `need`, `reason`, `paused`, `stale`, `as_of`, `n` and more; full list in HiveWorld's spec. `WorldSummary` decodes the fields HiveTempo needs |
 | ai-business-db | `next_checkpoint` | `{date, title}` of the next challenge checkpoint, or null |
+| iphone | `free_gb`, `total_gb`, `free_pct` | the iPhone's free and total storage (GB, 1 decimal) and free share (%) from the Mac's weekly scan (ai-scheduled `iphone_health.py`; never the app list) |
+| iphone | `battery_health_pct` | battery capacity left vs new (%), or null |
+| iphone | `ios`, `ios_latest`, `update_pending` | installed iOS, Apple's newest for the model (null when unknown), and whether an update waits. Read by HiveScore (`PhoneSummary` in HealthScoreKit; moves here when a second app reads it) |
 
 ## A new app joins
 
