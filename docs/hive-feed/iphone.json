@@ -1,0 +1,16 @@
+{
+ "schema": 1,
+ "app": "iphone",
+ "written_at": "2026-11-12T14:00:00Z",
+ "stale_after_minutes": 11520,
+ "summary": {
+  "scanned": "2026-11-12T09:00",
+  "free_gb": 18.2,
+  "total_gb": 256.0,
+  "free_pct": 7.1,
+  "battery_health_pct": 90.0,
+  "ios": "27.0.1",
+  "ios_latest": "27.2.1",
+  "update_pending": true
+ }
+}
