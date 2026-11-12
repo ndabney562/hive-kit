@@ -78,6 +78,22 @@ public struct ScoreSummary: Decodable, Equatable, Sendable {
     public var topFixes: [Fix]
 }
 
+/// HiveWorld (`hiveworld.json`): which projects need work next, and why (for HiveTempo). The HiveWorld app decodes
+/// every field with its own model in HiveWorldKit.
+public struct WorldSummary: Decodable, Equatable, Sendable {
+    public struct Project: Decodable, Equatable, Sendable {
+        public var id: String
+        public var name: String
+        public var need: Double?
+        public var reason: String?
+        public var paused: Bool
+    }
+    public var schemaVersion: Int
+    /// Project ids, most in need first; paused and finished projects never appear.
+    public var pick: [String]
+    public var projects: [Project]
+}
+
 /// The AI business (`ai-business-db.json`): the 90-day income challenge and each earning route.
 public struct BusinessSummary: Decodable, Equatable, Sendable {
     public struct Route: Decodable, Equatable, Sendable { public var name: String; public var status: String; public var earnedUsd: Double? }

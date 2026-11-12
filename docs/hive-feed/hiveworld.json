@@ -1,0 +1,163 @@
+{
+ "app": "hiveworld",
+ "schema": 1,
+ "stale_after_minutes": 1560,
+ "summary": {
+  "generated_at": "2026-11-11T11:00:00Z",
+  "pick": [],
+  "projects": [
+   {
+    "ai_sessions_7d": {
+     "claude": 0,
+     "codex": 0,
+     "gemini": 0
+    },
+    "ai_sessions_weekly": {
+     "claude": [],
+     "codex": [],
+     "gemini": []
+    },
+    "as_of": "2026-11-11T11:00:00Z",
+    "changed_today": false,
+    "cluster": "code",
+    "cost_month": null,
+    "earnings_month": null,
+    "id": "ndabney562/etsy",
+    "income": null,
+    "links": [],
+    "momentum": {
+     "change_pct": null,
+     "status": "new",
+     "usual": null,
+     "weekly": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    "n": 0,
+    "name": "etsy",
+    "need": null,
+    "next_step": null,
+    "paused": true,
+    "progress": {
+     "done": 2,
+     "forecast": null,
+     "total": 2
+    },
+    "reason": null,
+    "score": null,
+    "since": "2026-03-01",
+    "stale": false
+   },
+   {
+    "ai_sessions_7d": {
+     "claude": 0,
+     "codex": 0,
+     "gemini": 0
+    },
+    "ai_sessions_weekly": {
+     "claude": [],
+     "codex": [],
+     "gemini": []
+    },
+    "as_of": "2026-11-11T10:00:00Z",
+    "changed_today": true,
+    "cluster": "code",
+    "cost_month": null,
+    "earnings_month": null,
+    "id": "ndabney562/alpha",
+    "income": null,
+    "links": [],
+    "momentum": {
+     "change_pct": -50,
+     "status": "ok",
+     "usual": 3.0,
+     "weekly": [
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      2,
+      2
+     ]
+    },
+    "n": 42,
+    "name": "alpha",
+    "need": null,
+    "next_step": "[Claude] ship it",
+    "paused": false,
+    "progress": {
+     "done": 5,
+     "forecast": {
+      "from": "2026-12-03",
+      "to": "2027-02-16"
+     },
+     "total": 8
+    },
+    "reason": null,
+    "score": 82,
+    "since": "2026-07-01",
+    "stale": false
+   },
+   {
+    "ai_sessions_7d": {
+     "claude": 0,
+     "codex": 0,
+     "gemini": 0
+    },
+    "ai_sessions_weekly": {
+     "claude": [],
+     "codex": [],
+     "gemini": []
+    },
+    "as_of": "2026-11-11T10:00:00Z",
+    "changed_today": false,
+    "cluster": "code",
+    "cost_month": null,
+    "earnings_month": null,
+    "id": "ndabney562/ghost",
+    "income": null,
+    "links": [],
+    "momentum": {
+     "change_pct": null,
+     "status": "not on this Mac",
+     "usual": null,
+     "weekly": []
+    },
+    "n": 0,
+    "name": "ghost",
+    "need": null,
+    "next_step": null,
+    "paused": false,
+    "progress": null,
+    "reason": null,
+    "score": 64,
+    "since": "2026-11-11",
+    "stale": false
+   }
+  ],
+  "schema_version": 1,
+  "weights": [
+   0.4,
+   0.4,
+   0.2
+  ]
+ },
+ "written_at": "2026-11-11T11:00:00Z"
+}

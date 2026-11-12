@@ -7,7 +7,7 @@ fixtures).
 ## Where
 
 Branch `hive` of the private repo `ndabney562/hivemind`, one file per app: `<app>.json`, where `<app>` is the app's
-repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`). Only the Mac writes, always through HiveMind:
+repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`). Only the Mac writes, always through HiveMind:
 
     hivemind feed publish <app> <file>     # validates, then commits on top of the branch and pushes
     hivemind feed show [app] [--json]      # one line per app, stale ones marked; --json prints the file
@@ -44,6 +44,9 @@ ones); removing a field or changing its meaning bumps `schema`.
 | ai-business-db | `day`, `days_total`, `ends` | the 90-day income challenge: today's day number, its length, its last day (YYYY-MM-DD) |
 | ai-business-db | `earned_usd` | dollars earned so far, all routes |
 | ai-business-db | `routes[]` | `{name, status, earned_usd}` per earning route (`earned_usd` null when unknown), at most 8 |
+| hiveworld | `schema_version`, `generated_at`, `weights` | HiveWorld's own version, run time, need weights (score gap, momentum drop, income boost) |
+| hiveworld | `pick` | project ids most in need first (paused and finished never listed); read by HiveTempo |
+| hiveworld | `projects[]` | per repo: `id` (owner/repo), `name`, `score`, `momentum` {`weekly`[12], `usual`, `change_pct`, `status`}, `progress` {`done`, `total`, `forecast`}, `next_step`, `need`, `reason`, `paused`, `stale`, `as_of`, `n` and more; full list in HiveWorld's spec. `WorldSummary` decodes the fields HiveTempo needs |
 | ai-business-db | `next_checkpoint` | `{date, title}` of the next challenge checkpoint, or null |
 
 ## A new app joins
