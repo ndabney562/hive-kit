@@ -41,6 +41,11 @@ struct HiveFeedTests {
         #expect(business?.summary.routes.first?.earnedUsd == 12.5)
         #expect(business?.summary.routes.last?.earnedUsd == nil)
         #expect(business?.summary.nextCheckpoint?.title == "route review")
+        let world = try HiveFeed.decode(fixture("hiveworld"), as: WorldSummary.self)
+        #expect(world?.summary.schemaVersion == 1)
+        #expect(world?.summary.projects.count == 3)
+        #expect(world?.summary.projects.first { $0.id == "ndabney562/etsy" }?.paused == true)
+        #expect(world?.summary.projects.first?.reason == nil)
     }
 
     @Test func unknownFieldsIgnored() throws {
