@@ -40,6 +40,7 @@ ones); removing a field or changing its meaning bumps `schema`.
 | hive-tempo | `current`, `next` | `{title, until}` / `{title, at}` (HH:MM, local), or null |
 | health-score | `method`, `score`, `word`, `capped` | the HiveScore reading (scoring method, 0-100, band word, safety cap) |
 | health-score | `top_fixes[]` | `{id, repo, title, points}`, at most 3, biggest gain first |
+| health-score | `repos[]` | `{repo, score}`: each scored repo's own score (0-100, the same method run on that repo alone); read by HiveWorld. Absent in files written before 2026-11-11 |
 | ai-business-db | `day`, `days_total`, `ends` | the 90-day income challenge: today's day number, its length, its last day (YYYY-MM-DD) |
 | ai-business-db | `earned_usd` | dollars earned so far, all routes |
 | ai-business-db | `routes[]` | `{name, status, earned_usd}` per earning route (`earned_usd` null when unknown), at most 8 |
