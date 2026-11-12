@@ -1,3 +1,4 @@
 {"schema": 1, "app": "health-score", "written_at": "2026-11-08T19:00:00Z", "stale_after_minutes": 120,
  "summary": {"method": 8, "score": 60, "word": "Fair", "capped": true,
-             "top_fixes": [{"id": "safety.secret_diff", "repo": "ndabney562/hive-tempo", "title": "Remove the secret from a recent change", "points": 40}]}}
+             "top_fixes": [{"id": "safety.secret_diff", "repo": "ndabney562/hive-tempo", "title": "Remove the secret from a recent change", "points": 40}],
+             "repos": [{"repo": "hive-tempo", "score": 60}, {"repo": "health-score", "score": 92}]}}
