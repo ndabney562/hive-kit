@@ -7,8 +7,9 @@ Usage: python3 -I asc_check.py <app repo dir> [--no-register]
   Reads PRODUCT_BUNDLE_IDENTIFIER from the .xcodeproj in <repo> (or the shallowest one up to 3 folders down) and the
   API key from Config/Signing.xcconfig next to it
   (ASC_KEY_ID, ASC_ISSUER_ID; key file ~/.appstoreconnect/private_keys/AuthKey_<id>.p8).
-  A missing bundle ID is registered (what Xcode would do); --no-register only reports it.
-Exit: 0 ready, 1 not ready (the steps for Noah are printed), 2 no API key or bundle ID to check with.
+  A missing bundle ID is registered (what Xcode would do); --no-register only reports it. It also checks for an
+  internal TestFlight group with a tester (read only): without one, builds never reach Noah (2026-11-13).
+Exit: 0 ready, 1 not ready (the browser steps are printed), 2 no API key or bundle ID to check with.
 Stdlib only; the token is made with openssl and kept in memory. Tests: HIVE_ASC_FAKE=<json file> answers requests
 from {"GET <path>": [status, body], ...} instead of Apple, and logs POST bodies to HIVE_ASC_FAKE_LOG.
 """
@@ -144,15 +145,28 @@ def main(argv):
     if status != 200:
         print(f"asc_check: {name}: Apple answered {status} for the app record: {data}", file=sys.stderr)
         return 1
-    if not any(d["attributes"]["bundleId"] == bid for d in data.get("data", [])):
-        print(f"NOT READY {name}: App Store Connect has no app for {bid}. Apple's API can't create one, so Noah does "
-              f"(about 3 min, iPhone Safari works):\n"
+    apps = [d for d in data.get("data", []) if d["attributes"]["bundleId"] == bid]
+    if not apps:
+        print(f"NOT READY {name}: App Store Connect has no app for {bid}. Apple's API can't create one, so Claude "
+              f"makes it in the signed-in built-in browser (about 3 min):\n"
               f"  1. appstoreconnect.apple.com > Apps > + > New App\n"
               f"  2. Platform iOS; Name {name}; Language English (U.S.); Bundle ID {bid}; SKU {name.lower()}; "
               f"User Access Full Access\n"
               f"  3. Tap Create")
         return 1
-    print(f"READY {name}: {bid} is registered and has an App Store Connect app.")
+    status, data = c.call("GET", f"/v1/betaGroups?filter[app]={apps[0]['id']}&filter[isInternalGroup]=true"
+                                 f"&include=betaTesters&fields[betaGroups]=name,betaTesters&limit=50")
+    if status != 200:
+        print(f"asc_check: {name}: Apple answered {status} for the TestFlight groups: {data}", file=sys.stderr)
+        return 1
+    if not any(g.get("relationships", {}).get("betaTesters", {}).get("data") for g in data.get("data", [])):
+        print(f"NOT READY {name}: no internal TestFlight group with a tester, so builds never reach Noah's iPhone. "
+              f"Claude makes it in the signed-in built-in browser (Noah's yes first; about 2 min):\n"
+              f"  1. appstoreconnect.apple.com > Apps > {name} > TestFlight > Internal Testing +\n"
+              f"  2. Group name Me, keep Enable automatic distribution ticked > Create\n"
+              f"  3. Testers + > tick Noah > Add")
+        return 1
+    print(f"READY {name}: {bid} is registered, has an App Store Connect app and an internal tester group.")
     return 0
 
 
