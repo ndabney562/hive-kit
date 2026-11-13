@@ -35,7 +35,7 @@ for a; do last=$a; done; echo "$last" > "$OSA_LOG"
 X
 chmod +x "$t/osascript"
 # A fake App Store Connect: the app record exists, so the check passes.
-printf '{"GET /v1/bundleIds?filter[identifier]=com.x.demo&fields[bundleIds]=identifier": [200, {"data": [{"attributes": {"identifier": "com.x.demo"}}]}], "GET /v1/apps?filter[bundleId]=com.x.demo&fields[apps]=bundleId,name": [200, {"data": [{"attributes": {"bundleId": "com.x.demo"}}]}]}' > "$t/ready.json"
+printf '{"GET /v1/bundleIds?filter[identifier]=com.x.demo&fields[bundleIds]=identifier": [200, {"data": [{"attributes": {"identifier": "com.x.demo"}}]}], "GET /v1/apps?filter[bundleId]=com.x.demo&fields[apps]=bundleId,name": [200, {"data": [{"id": "A1", "attributes": {"bundleId": "com.x.demo"}}]}], "GET /v1/betaGroups?filter[app]=A1&filter[isInternalGroup]=true&include=betaTesters&fields[betaGroups]=name,betaTesters&limit=50": [200, {"data": [{"id": "G1", "relationships": {"betaTesters": {"data": [{"id": "T1"}]}}}]}]}' > "$t/ready.json"
 printf '{"GET /v1/bundleIds?filter[identifier]=com.x.demo&fields[bundleIds]=identifier": [200, {"data": [{"attributes": {"identifier": "com.x.demo"}}]}], "GET /v1/apps?filter[bundleId]=com.x.demo&fields[apps]=bundleId,name": [200, {"data": []}]}' > "$t/norecord.json"
 mkdir -p "$t/app/Demo.xcodeproj" && echo 'PRODUCT_BUNDLE_IDENTIFIER = com.x.demo;' > "$t/app/Demo.xcodeproj/project.pbxproj"
 export HIVE_ASC_FAKE="$t/ready.json" HIVE_ASC_FAKE_LOG="$t/post.log"
