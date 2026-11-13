@@ -7,7 +7,7 @@ fixtures).
 ## Where
 
 Branch `hive` of the private repo `ndabney562/hivemind`, one file per app: `<app>.json`, where `<app>` is the app's
-repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`; `iphone` is the Mac's weekly iPhone scan and `ideas` the weekly idea generator, neither a repo). Only the Mac writes, always through HiveMind:
+repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`; `iphone` is the Mac's weekly iPhone scan, `ideas` the weekly idea generator and `releases` the newest TestFlight upload's release evidence, none a repo). Only the Mac writes, always through HiveMind:
 
     hivemind feed publish <app> <file>     # validates, then commits on top of the branch and pushes
     hivemind feed show [app] [--json]      # one line per app, stale ones marked; --json prints the file
@@ -51,6 +51,8 @@ ones); removing a field or changing its meaning bumps `schema`.
 | iphone | `free_gb`, `total_gb`, `free_pct` | the iPhone's free and total storage (GB, 1 decimal) and free share (%) from the Mac's weekly scan (ai-scheduled `iphone_health.py`; never the app list) |
 | iphone | `battery_health_pct` | battery capacity left vs new (%), or null |
 | iphone | `ios`, `ios_latest`, `update_pending` | installed iOS, Apple's newest for the model (null when unknown), and whether an update waits. Read by HiveScore (`PhoneSummary` in HealthScoreKit; moves here when a second app reads it) |
+| releases | `app`, `version`, `build`, `commit`, `at` | the newest TestFlight upload of any Hive app (hive-kit `testflight.sh` publishes it after the upload, from `release-evidence/<build>/evidence.json`) |
+| releases | `ready`, `override`, `tests_passed`, `screens`, `under_load` | whether its proof was complete (`evidence.py`), the override reason when it wasn't, tests passed, iPhone screenshots kept, and whether heavy-guard ran the tests under load. HiveScore may count proven releases later |
 | ideas | `ideas[]` | every idea put to Noah in the last 14 days: `{asked_on, n, kind, title, why_now, reuses, size, ais}`; `asked_on` + `n` name its Business Asks card (`kind`: feature, link or new; `size`: S, M or L). Written on Tuesdays by ai-scheduled `improvement_sweep.py` (stale after 8 days); HiveTempo looks Design / Park / No answers up here. No Swift reader yet |
 
 ## A new app joins

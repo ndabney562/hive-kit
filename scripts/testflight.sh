@@ -62,6 +62,25 @@ else
 fi
 # HIVE_BUILD sets the build number by hand: Apple refuses one lower than the last upload (HiveMind, 2026-11-04).
 build=${HIVE_BUILD:-$(date +%Y%m%d.%H%M)}
+# Release evidence gate (2026-11-13): evidence.py runs the app's tests (through heavy-guard), takes the UI tests'
+# iPhone screenshots and writes release-evidence/<build>/evidence.json. Missing proof stops the upload;
+# HIVE_EVIDENCE_OVERRIDE="<reason>" releases anyway and records why. HIVE_EVIDENCE_CMD replaces the command in tests.
+evidence_py="$(cd "$(dirname "$0")" && pwd)/evidence.py"
+evidence() {  # the script path stays one argument even with spaces in it
+  if [ -n "${HIVE_EVIDENCE_CMD:-}" ]; then "$HIVE_EVIDENCE_CMD" "$@"; else python3 -I "$evidence_py" "$@"; fi
+}
+evidence_line=""
+if [ "$dry" -eq 1 ]; then
+  echo "${HIVE_EVIDENCE_CMD:-python3 -I $evidence_py} $here --build $build --app $project"
+else
+  if ! evidence_out=$(evidence "$here" --build "$build" --app "$project"); then
+    printf '%s\n' "$evidence_out"
+    echo "testflight.sh: release evidence is missing, so $name build $build was not uploaded. Fix it, or set HIVE_EVIDENCE_OVERRIDE=\"<reason>\" to release anyway." >&2
+    exit 1
+  fi
+  printf '%s\n' "$evidence_out"
+  evidence_line=$(printf '%s\n' "$evidence_out" | tail -1)
+fi
 archive="$here/build/$project.xcarchive"
 run() {
   if [ "$dry" -eq 1 ]; then printf '%s\n' "$*"; else "$@"; fi
@@ -77,13 +96,28 @@ run heavy "testflight-$project" -- xcodebuild archive -project "$here/$project.x
 run xcodebuild -exportArchive -archivePath "$archive" -exportPath "$here/build/export" \
   -exportOptionsPlist "$here/Config/ExportOptions.plist" -allowProvisioningUpdates "$@"
 if [ "$dry" -eq 0 ]; then
-  echo "Uploaded $name build $build. Apple processes it in about 15 minutes; then it appears in App Store Connect › $name › TestFlight and in the TestFlight app on your iPhone."
+  echo "Uploaded $name build $build. $evidence_line"
+  # Publish the release to the Hive feed (`releases`) when hivemind is here; HIVE_HIVEMIND overrides, HIVE_NO_FEED=1 skips.
+  hm=${HIVE_HIVEMIND:-$(command -v hivemind || true)}
+  [ -z "$hm" ] && [ -x "$HOME/AI.Stuff/HiveMind/hivemind" ] && hm=$HOME/AI.Stuff/HiveMind/hivemind
+  ev_json="$here/release-evidence/$build/evidence.json"
+  if [ -z "${HIVE_NO_FEED:-}" ] && [ -n "$hm" ] && [ -f "$ev_json" ]; then
+    feed=$(mktemp)
+    if python3 -I "$evidence_py" --feed "$ev_json" > "$feed" && "$hm" feed publish releases "$feed" >/dev/null 2>&1; then
+      echo "Published build $build to the Hive feed (releases)."
+    else
+      echo "testflight.sh: couldn't publish build $build to the Hive feed (releases); the upload itself is fine." >&2
+    fi
+    rm -f "$feed"
+  fi
+  [ -f "$ev_json" ] && echo "Commit release-evidence/$build/evidence.json (and its .gitignore) with the HANDOFF update."
+  echo "Apple processes it in about 15 minutes; then it appears in App Store Connect › $name › TestFlight and in the TestFlight app on your iPhone."
   if [ -f "$here/Config/testflight-note.txt" ]; then cat "$here/Config/testflight-note.txt"; fi
   if [ -z "${HIVE_NO_REMIND:-}" ] && command -v osascript >/dev/null; then
     title="Update $name in TestFlight (build $build)"
     if osascript -e 'on run argv' \
-      -e 'tell application "Reminders" to make new reminder with properties {name:(item 1 of argv), remind me date:((current date) + 20 * minutes)}' \
-      -e 'end run' "$title" >/dev/null 2>&1; then
+      -e 'tell application "Reminders" to make new reminder with properties {name:(item 1 of argv), body:(item 2 of argv), remind me date:((current date) + 20 * minutes)}' \
+      -e 'end run' "$title" "$evidence_line" >/dev/null 2>&1; then
       echo "Reminder set for 20 minutes from now: $title"
     else
       echo "Couldn't set the Reminders alert (allow Terminal in System Settings › Privacy & Security › Reminders)."

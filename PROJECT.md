@@ -4,7 +4,7 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 
 - **Repo URL:** https://github.com/ndabney562/hive-kit (public)
 - **Branch:** main (feature branches and PRs)
-- **Test command:** `swift test && sh scripts/testflight.test.sh && sh scripts/asc_check.test.sh && sh scripts/asc_public_link.test.sh` (from the repo root)
+- **Test command:** `swift test && sh scripts/testflight.test.sh && sh scripts/asc_check.test.sh && sh scripts/asc_public_link.test.sh && python3 -I scripts/test_evidence.py` (from the repo root)
 - **Stack:** Swift 6 package, Foundation only (Keychain code only where `Security` exists), macOS and Linux CI.
 
 ## Rules
@@ -15,6 +15,7 @@ The Hive apps' shared logic as a Swift package (Noah, 2026-11-07: one Hive frame
 ## Milestones
 - [x] Package with HTTP, GitHub client and sign-in (from HiveTempo's newer copy), shared TestFlight script; tests pass
 - [x] Public repo with CI and tag 1.0.0
+- [x] Release evidence pack: `scripts/evidence.py` gates `testflight.sh` on tests + UI screenshots + build number, `releases` feed file (1.10.0, 2026-11-13)
 - [x] HiveRounds uses it (hive-rounds PR 5)
 - [x] HiveTempo uses it (its own copies removed)
 - [x] HiveScore uses it (its own copies removed; gains HiveTempo's sign-out race fix)
