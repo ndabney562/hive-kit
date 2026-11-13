@@ -1,0 +1,23 @@
+{
+ "schema": 1,
+ "app": "ideas",
+ "written_at": "2026-11-17T04:10:00Z",
+ "stale_after_minutes": 11520,
+ "summary": {
+  "ideas": [
+   {
+    "asked_on": "2026-11-18",
+    "n": 4,
+    "kind": "link",
+    "title": "HiveScore scores steer the planner's picks",
+    "why_now": "hive-score publishes repos[]; hive-tempo could rank code tasks by it",
+    "reuses": "Hive feed, HiveFeedReader",
+    "size": "S",
+    "ais": [
+     "codex",
+     "gemini"
+    ]
+   }
+  ]
+ }
+}
