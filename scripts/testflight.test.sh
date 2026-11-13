@@ -50,4 +50,9 @@ echo "$out" | grep -q "Reminder set for 20 minutes" || fail "reminder message"
 rm "$t/osa.log"
 OSA_LOG="$t/osa.log" HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo >/dev/null
 [ -f "$t/osa.log" ] && fail "HIVE_NO_REMIND should skip the reminder"
+# The archive goes through heavy-guard (a fake one records its arguments, then runs the command).
+printf '#!/bin/sh\necho "$@" > "$GUARD_LOG"; shift 2; exec "$@"\n' > "$t/guard" && chmod +x "$t/guard"
+out=$(GUARD_LOG="$t/guard.log" HEAVY_GUARD_BIN="$t/guard" HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo)
+grep -q "^testflight-Demo -- xcodebuild archive" "$t/guard.log" || fail "archive not guarded: $(cat "$t/guard.log" 2>/dev/null)"
+echo "$out" | grep -q "KEY=\[$t/my home/" || fail "guarded archive lost its arguments: $out"
 echo "testflight.test.sh: all checks passed"

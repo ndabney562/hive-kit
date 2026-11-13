@@ -66,7 +66,13 @@ archive="$here/build/$project.xcarchive"
 run() {
   if [ "$dry" -eq 1 ]; then printf '%s\n' "$*"; else "$@"; fi
 }
-run xcodebuild archive -project "$here/$project.xcodeproj" -scheme "$project" -destination generic/platform=iOS \
+# The archive runs through agent-rules heavy-guard on Noah's Mac: one heavy job at a time, after load spikes
+# pass (it never skips; exit code unchanged). Without heavy-guard it runs directly. HEAVY_GUARD_BIN overrides.
+heavy() {
+  g="${HEAVY_GUARD_BIN:-$HOME/agent-rules/scripts/heavy-guard}"
+  if [ -x "$g" ]; then "$g" "$@"; else shift 2; "$@"; fi
+}
+run heavy "testflight-$project" -- xcodebuild archive -project "$here/$project.xcodeproj" -scheme "$project" -destination generic/platform=iOS \
   -archivePath "$archive" -allowProvisioningUpdates "$@" -xcconfig "$signing" CURRENT_PROJECT_VERSION="$build"
 run xcodebuild -exportArchive -archivePath "$archive" -exportPath "$here/build/export" \
   -exportOptionsPlist "$here/Config/ExportOptions.plist" -allowProvisioningUpdates "$@"
