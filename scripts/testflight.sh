@@ -65,13 +65,15 @@ build=${HIVE_BUILD:-$(date +%Y%m%d.%H%M)}
 # Release evidence gate (2026-11-13): evidence.py runs the app's tests (through heavy-guard), takes the UI tests'
 # iPhone screenshots and writes release-evidence/<build>/evidence.json. Missing proof stops the upload;
 # HIVE_EVIDENCE_OVERRIDE="<reason>" releases anyway and records why. HIVE_EVIDENCE_CMD replaces the command in tests.
-evidence_cmd=${HIVE_EVIDENCE_CMD:-python3 -I $(dirname "$0")/evidence.py}
+evidence_py="$(cd "$(dirname "$0")" && pwd)/evidence.py"
+evidence() {  # the script path stays one argument even with spaces in it
+  if [ -n "${HIVE_EVIDENCE_CMD:-}" ]; then "$HIVE_EVIDENCE_CMD" "$@"; else python3 -I "$evidence_py" "$@"; fi
+}
 evidence_line=""
 if [ "$dry" -eq 1 ]; then
-  echo "$evidence_cmd $here --build $build --app $project"
+  echo "${HIVE_EVIDENCE_CMD:-python3 -I $evidence_py} $here --build $build --app $project"
 else
-  # shellcheck disable=SC2086  # evidence_cmd is a command line on purpose
-  if ! evidence_out=$($evidence_cmd "$here" --build "$build" --app "$project"); then
+  if ! evidence_out=$(evidence "$here" --build "$build" --app "$project"); then
     printf '%s\n' "$evidence_out"
     echo "testflight.sh: release evidence is missing, so $name build $build was not uploaded. Fix it, or set HIVE_EVIDENCE_OVERRIDE=\"<reason>\" to release anyway." >&2
     exit 1
@@ -101,7 +103,7 @@ if [ "$dry" -eq 0 ]; then
   ev_json="$here/release-evidence/$build/evidence.json"
   if [ -z "${HIVE_NO_FEED:-}" ] && [ -n "$hm" ] && [ -f "$ev_json" ]; then
     feed=$(mktemp)
-    if python3 -I "$(dirname "$0")/evidence.py" --feed "$ev_json" > "$feed" && "$hm" feed publish releases "$feed" >/dev/null 2>&1; then
+    if python3 -I "$evidence_py" --feed "$ev_json" > "$feed" && "$hm" feed publish releases "$feed" >/dev/null 2>&1; then
       echo "Published build $build to the Hive feed (releases)."
     else
       echo "testflight.sh: couldn't publish build $build to the Hive feed (releases); the upload itself is fine." >&2

@@ -40,7 +40,7 @@ XCRUN = textwrap.dedent("""\
 
 
 class Fixture:
-    def __init__(self, tmp, test_cmd="echo 'Ran 3 tests'; echo OK", screenshots=True, build_setting=True,
+    def __init__(self, tmp, test_cmd="echo 'Ran 3 tests in 0.01s'; echo OK", screenshots=True, build_setting=True,
                  summary=None):
         self.root = Path(tmp)
         self.repo = self.root / "app"
@@ -98,7 +98,9 @@ class Fixture:
 def xcode_test_cmd(fx):
     """A test command that, like xcodebuild, leaves a fresh .xcresult in DerivedData."""
     target = fx.dd / "Demo-abc" / "Logs" / "Test" / "Test-Demo-now.xcresult"
-    return f"mkdir -p '{target}' && echo 'xcodebuild test done' && echo '** TEST SUCCEEDED **'"
+    return (f"mkdir -p '{target}' && echo 'Command line invocation:' && "
+            "printf 'Test Suite \\047All tests\\047 passed\\n\\t Executed 10 tests, with 1 test skipped and 0 failures (0 unexpected) in 1 (1) seconds\\n' && "
+            "echo '** TEST SUCCEEDED **'")
 
 
 class ReadyTest(unittest.TestCase):
@@ -106,7 +108,7 @@ class ReadyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fx = Fixture(tmp)
             proj = fx.repo / "PROJECT.md"
-            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests'; echo OK", xcode_test_cmd(fx)))
+            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests in 0.01s'; echo OK", xcode_test_cmd(fx)))
             fx.git("commit", "-qam", "cmd")
             r = fx.run("--build", "7")
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -164,7 +166,7 @@ class MissingTest(unittest.TestCase):
 
     def test_failing_tests(self):
         with tempfile.TemporaryDirectory() as tmp:
-            fx = Fixture(tmp, test_cmd="echo 'Ran 2 tests'; echo 'FAILED (failures=1)'; exit 1")
+            fx = Fixture(tmp, test_cmd="echo 'Ran 2 tests in 0.01s'; echo 'FAILED (failures=1)'; exit 1")
             self.check_missing(fx, "tests failed (exit 1)", "--build", "7")
 
     def test_no_test_summary(self):
@@ -176,7 +178,7 @@ class MissingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fx = Fixture(tmp, screenshots=False)
             proj = fx.repo / "PROJECT.md"
-            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests'; echo OK", xcode_test_cmd(fx)))
+            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests in 0.01s'; echo OK", xcode_test_cmd(fx)))
             fx.git("commit", "-qam", "cmd")
             self.check_missing(fx, "no screenshots", "--build", "7")
 
@@ -194,7 +196,7 @@ class MissingTest(unittest.TestCase):
 
     def test_dirty_tree_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
-            fx = Fixture(tmp, test_cmd="touch ran-tests; echo 'Ran 1 test'; echo OK")
+            fx = Fixture(tmp, test_cmd="touch ran-tests; echo 'Ran 1 test in 0.01s'; echo OK")
             (fx.repo / "PROJECT.md").write_text((fx.repo / "PROJECT.md").read_text() + "\nedit\n")
             r = self.check_missing(fx, "uncommitted changes", "--build", "7")
             self.assertFalse((fx.repo / "ran-tests").exists())  # refused before running anything
@@ -215,6 +217,30 @@ class OverrideTest(unittest.TestCase):
             self.assertIn("no screenshots", " ".join(data["missing"]))
             self.assertIn("Released build 7 with override: hotfix for a crash, UI tests broken upstream",
                           (fx.repo / "HANDOFF.md").read_text())
+
+
+class XcresultScopeTest(unittest.TestCase):
+    def test_other_apps_bundle_is_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = Fixture(tmp)
+            other = fx.dd / "OtherApp-xyz" / "Logs" / "Test" / "Test-OtherApp-now.xcresult"
+            proj = fx.repo / "PROJECT.md"
+            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests in 0.01s'; echo OK",
+                                                     f"mkdir -p '{other}'; echo 'Ran 3 tests in 0.01s'; echo OK"))
+            fx.git("commit", "-qam", "cmd")
+            r = fx.run("--build", "7")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("no screenshots", r.stdout)
+            data = json.loads((fx.repo / "release-evidence" / "7" / "evidence.json").read_text())
+            self.assertEqual(data["tests"]["passed"], 3)
+            self.assertIsNone(data["xcresult"])
+
+    def test_without_xcodebuild(self):
+        text = ("Ran 2 tests in 0s\n\nOK\nCommand line invocation:\n  xcodebuild test\n"
+                "Test Suite 'All tests' passed\n\t Executed 5 tests, with 0 failures (0 unexpected) in 1 (1) seconds\n"
+                "** TEST SUCCEEDED **\nRan 1 test in 0s\n\nOK\n")
+        self.assertEqual(ev.parse_counts(ev.without_xcodebuild(text))["passed"], 3)
+        self.assertEqual(ev.parse_counts(text)["passed"], 8)
 
 
 class GuardTest(unittest.TestCase):

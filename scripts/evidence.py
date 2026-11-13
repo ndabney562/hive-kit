@@ -68,6 +68,20 @@ def project_test_line(repo):
     return ""
 
 
+def without_xcodebuild(text):
+    """The output minus each xcodebuild run ("Command line invocation:" ... "** TEST/BUILD ... **"): those
+    tests are counted from the run's .xcresult instead, so they are never counted twice."""
+    keep, inside = [], False
+    for line in text.splitlines():
+        if line.startswith("Command line invocation:"):
+            inside = True
+        if not inside:
+            keep.append(line)
+        if inside and re.match(r"\*\* (TEST|BUILD|TEST BUILD)[A-Z ]* (SUCCEEDED|FAILED|INTERRUPTED) \*\*", line.strip()):
+            inside = False
+    return "\n".join(keep)
+
+
 def parse_counts(text):
     """Pass/fail/skip totals from swift test (XCTest and swift-testing) and python unittest output."""
     passed = failed = skipped = 0
@@ -111,10 +125,11 @@ def derived_data():
     return Path(os.environ.get("HIVE_EVIDENCE_DERIVED_DATA", HOME / "Library" / "Developer" / "Xcode" / "DerivedData"))
 
 
-def new_xcresults(since):
-    """.xcresult bundles made at or after `since` (epoch seconds), newest first."""
+def new_xcresults(since, app):
+    """This app's .xcresult bundles made at or after `since` (epoch seconds), newest first. Only the app's own
+    DerivedData folder (<app>-<hash>) and test bundles (Test-<app>-...), so another app's run never counts."""
     found = []
-    for p in derived_data().glob("*/Logs/Test/*.xcresult"):
+    for p in derived_data().glob(f"{app}-*/Logs/Test/Test-{app}-*.xcresult"):
         try:
             if p.stat().st_mtime >= since - 1:
                 found.append(p)
@@ -291,19 +306,20 @@ def main(argv=None):
     else:
         missing.append("no test command in PROJECT.md")
         code, output, seconds, under_load = None, "", 0.0, False
-    counts = parse_counts(output)
     out_dir = repo / "release-evidence" / (build or "unknown")
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / ".gitignore").write_text("# Only evidence.json is committed; screenshots and index.html stay local.\n"
                                        "*\n!.gitignore\n!evidence.json\n")
     screens = []
-    bundles = new_xcresults(started) if cmds else []
+    bundles = new_xcresults(started, app) if cmds else []
+    xc = xcresult_counts(bundles[0]) if bundles else None
+    # xcodebuild tests count once, from the .xcresult; without one, its printed summary is the fallback.
+    counts = parse_counts(without_xcodebuild(output) if xc else output)
+    if xc:
+        for k in ("passed", "failed", "skipped"):
+            counts[k] += xc[k]
+        counts["found"] = True
     if bundles:
-        xc = xcresult_counts(bundles[0])
-        if xc:
-            for k in ("passed", "failed", "skipped"):
-                counts[k] += xc[k]
-            counts["found"] = True
         screens = export_screens(bundles[0], out_dir)
     if cmds and code != 0:
         missing.append(f"tests failed (exit {code})")
