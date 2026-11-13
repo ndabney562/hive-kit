@@ -154,7 +154,7 @@ def screen_name(suggested):
     return re.sub(r"_\d+_[0-9A-Fa-f-]{8,}(\.\w+)$", r"\1", suggested)
 
 
-def export_screens(bundle, out_dir):
+def export_screens(bundle, out_dir, taken=()):
     """Copy the iPhone image attachments into out_dir. Returns [{path, sha256, appearance, test}]."""
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(["xcrun", "xcresulttool", "export", "attachments", "--path", str(bundle),
@@ -163,7 +163,7 @@ def export_screens(bundle, out_dir):
             manifest = json.loads(Path(tmp, "manifest.json").read_text())
         except (OSError, ValueError):
             return []
-        shots, used = [], set()
+        shots, used = [], set(taken)
         for test in manifest:
             for a in test.get("attachments", []):
                 name = a.get("suggestedHumanReadableName") or a.get("exportedFileName", "")
@@ -312,15 +312,16 @@ def main(argv=None):
                                        "*\n!.gitignore\n!evidence.json\n")
     screens = []
     bundles = new_xcresults(started, app) if cmds else []
-    xc = xcresult_counts(bundles[0]) if bundles else None
-    # xcodebuild tests count once, from the .xcresult; without one, its printed summary is the fallback.
-    counts = parse_counts(without_xcodebuild(output) if xc else output)
-    if xc:
+    # xcodebuild tests count once, from this run's .xcresult bundles (all of them: a unit run and a UI run each
+    # make one); without any bundle, xcodebuild's printed summary is the fallback.
+    summaries = [c for c in (xcresult_counts(b) for b in bundles) if c]
+    counts = parse_counts(without_xcodebuild(output) if summaries else output)
+    for xc in summaries:
         for k in ("passed", "failed", "skipped"):
             counts[k] += xc[k]
         counts["found"] = True
-    if bundles:
-        screens = export_screens(bundles[0], out_dir)
+    for b in bundles:
+        screens += export_screens(b, out_dir, taken={x["path"] for x in screens})
     if cmds and code != 0:
         missing.append(f"tests failed (exit {code})")
     if cmds and not counts["found"]:
@@ -344,7 +345,7 @@ def main(argv=None):
                   "exit_code": code, "duration_s": seconds},
         "suites": [{"name": "project-test-command", "exit": code}],
         "under_load": under_load,
-        "xcresult": str(bundles[0]) if bundles else None,
+        "xcresult": [str(b) for b in bundles],
         "screenshots": screens,
         "ready": ready,
         "missing": missing,

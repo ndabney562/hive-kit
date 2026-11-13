@@ -233,7 +233,21 @@ class XcresultScopeTest(unittest.TestCase):
             self.assertIn("no screenshots", r.stdout)
             data = json.loads((fx.repo / "release-evidence" / "7" / "evidence.json").read_text())
             self.assertEqual(data["tests"]["passed"], 3)
-            self.assertIsNone(data["xcresult"])
+            self.assertEqual(data["xcresult"], [])
+
+    def test_two_bundles_both_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = Fixture(tmp)
+            two = xcode_test_cmd(fx) + " && " + xcode_test_cmd(fx).replace("Test-Demo-now", "Test-Demo-later")
+            proj = fx.repo / "PROJECT.md"
+            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests in 0.01s'; echo OK", two))
+            fx.git("commit", "-qam", "cmd")
+            r = fx.run("--build", "7")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            data = json.loads((fx.repo / "release-evidence" / "7" / "evidence.json").read_text())
+            self.assertEqual(data["tests"]["passed"], 18)  # 9 per bundle, printed summaries not added
+            self.assertEqual(len(data["xcresult"]), 2)
+            self.assertEqual(len(data["screenshots"]), 4)  # same names from both runs kept apart
 
     def test_without_xcodebuild(self):
         text = ("Ran 2 tests in 0s\n\nOK\nCommand line invocation:\n  xcodebuild test\n"
