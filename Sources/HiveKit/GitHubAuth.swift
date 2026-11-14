@@ -164,6 +164,20 @@ extension TokenSafe {
 /// One GitHub sign-in for every Hive app (Noah, 2026-11-09: "sign in once"). Reads the shared token first, then
 /// the app's own older one, which it moves into the shared store. Saves to the shared store, or to the app's own when
 /// sharing fails (e.g. a simulator build without the Keychain group). Sign-out clears both, so it signs out every app.
+/// The shared Hive sign-in, read-only, for widgets (from HiveScore and HiveWorld, 1.11.0). GitHub refresh tokens work
+/// once, so a widget refreshing while its app does could sign every Hive app out: this safe hands out the access token
+/// without its refresh token and never writes or clears. An expired token then just fails, and the widget shows the
+/// app's saved copy.
+public struct ReadOnlyTokenSafe: TokenSafe {
+    let base: any TokenSafe
+    public init(_ base: any TokenSafe) { self.base = base }
+    public func read() -> Token? {
+        base.read().map { Token(accessToken: $0.accessToken, expiresAt: nil, refreshToken: nil, refreshExpiresAt: nil) }
+    }
+    public func write(_ token: Token) throws { throw AuthError.signedOut }
+    public func clear() {}
+}
+
 public struct SharedTokenSafe: TokenSafe {
     let shared: any TokenSafe
     let own: any TokenSafe
