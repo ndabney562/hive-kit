@@ -3,7 +3,7 @@ import Foundation
 /// The Hive apps that publish to the feed, in menu order (docs/superpowers/specs/2026-11-09-hive-switcher-design.md).
 /// HiveRounds is not one: it runs on the doctor's phone and never links to Noah's data at runtime.
 public enum HiveApp: String, CaseIterable, Sendable {
-    case mind, score, tempo
+    case mind, score, tempo, world
 
     /// The feed file's name (`<feedName>.json`).
     public var feedName: String {
@@ -11,6 +11,7 @@ public enum HiveApp: String, CaseIterable, Sendable {
         case .mind: "hivemind"
         case .score: "health-score"
         case .tempo: "hive-tempo"
+        case .world: "hiveworld"
         }
     }
 
@@ -19,6 +20,7 @@ public enum HiveApp: String, CaseIterable, Sendable {
         case .mind: "HiveMind"
         case .score: "HiveScore"
         case .tempo: "HiveTempo"
+        case .world: "HiveWorld"
         }
     }
 
@@ -77,6 +79,13 @@ public struct HiveStatus: Equatable, Sendable {
         return parts.joined(separator: " · ")
     }
 
+    public static func line(_ s: WorldSummary) -> String {
+        if let first = s.pick.first, let proj = s.projects.first(where: { $0.id == first }) {
+            return "Next: \(proj.name)"
+        }
+        return s.projects.isEmpty ? "No projects" : "\(s.projects.count) projects"
+    }
+
     /// "16:00" → "4:00 pm"; nil for anything else.
     static func twelveHour(_ hhmm: String) -> String? {
         let p = hhmm.split(separator: ":")
@@ -111,6 +120,7 @@ extension HiveFeedReader {
         case .mind: return await row(HiveMindSummary.self, HiveStatus.line)
         case .score: return await row(ScoreSummary.self, HiveStatus.line)
         case .tempo: return await row(TempoSummary.self, HiveStatus.line)
+        case .world: return await row(WorldSummary.self, HiveStatus.line)
         }
     }
 }

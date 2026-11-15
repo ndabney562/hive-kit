@@ -11,7 +11,7 @@ struct HiveStatusTests {
     let now = ISO8601DateFormatter().date(from: "2026-11-09T15:00:00Z")!
 
     @Test func appsKnowTheirFeedNameAndURL() {
-        #expect(HiveApp.allCases.map(\.feedName) == ["hivemind", "health-score", "hive-tempo"])
+        #expect(HiveApp.allCases.map(\.feedName) == ["hivemind", "health-score", "hive-tempo", "hiveworld"])
         #expect(HiveApp.score.url.absoluteString == "hivescore://")
         #expect(HiveApp.mind.name == "HiveMind")
     }
@@ -62,7 +62,7 @@ struct HiveStatusTests {
             return json(["message": "boom"], status: 500)
         }
         let rows = await HiveFeedReader(client: feed.client(stub)).statuses(except: .tempo, now: now)
-        #expect(rows.map(\.app) == [.mind, .score])
+        #expect(rows.map(\.app) == [.mind, .score, .world])
         #expect(rows[0].line == "No status yet")
         let want = try #require(try HiveFeed.decode(score, as: ScoreSummary.self)).summary.score
         #expect(rows[1].line.hasPrefix("\(want) · "))
@@ -80,10 +80,11 @@ struct HiveStatusTests {
             return name == "health-score" ? score : nil
         }
         let rows = await reader.statuses(except: .mind, now: now)
-        #expect(rows.map(\.app) == [.score, .tempo])
+        #expect(rows.map(\.app) == [.score, .tempo, .world])
         #expect(rows[0].line.hasPrefix("\(try #require(try HiveFeed.decode(score, as: ScoreSummary.self)).summary.score) · "))
         #expect(rows[1].line == "No status yet")
-        #expect(await asked.names.sorted() == ["health-score", "hive-tempo"])
+        #expect(rows[2].line == "No status yet")
+        #expect(await asked.names.sorted() == ["health-score", "hive-tempo", "hiveworld"])
     }
 }
 

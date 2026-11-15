@@ -71,11 +71,16 @@ public struct ScoreSummary: Decodable, Equatable, Sendable {
         public var title: String
         public var points: Double
     }
+    public struct Repo: Decodable, Equatable, Sendable {
+        public var repo: String
+        public var score: Int
+    }
     public var method: Int
     public var score: Int
     public var word: String
     public var capped: Bool
     public var topFixes: [Fix]
+    public var repos: [Repo]?
 }
 
 /// HiveWorld (`hiveworld.json`): which projects need work next, and why (for HiveTempo). The HiveWorld app decodes
@@ -104,6 +109,35 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
     public var earnedUsd: Double
     public var routes: [Route]
     public var nextCheckpoint: Checkpoint?
+}
+
+/// `releases.json`: the newest TestFlight upload of any Hive app, from `release-evidence/<build>/evidence.json`.
+public struct ReleasesSummary: Decodable, Equatable, Sendable {
+    public var app: String
+    public var version: String
+    public var build: String
+    public var commit: String
+    public var at: Date
+    public var ready: Bool
+    public var override: String?
+    public var testsPassed: Int?
+    public var screens: Int?
+    public var underLoad: Bool?
+}
+
+/// `ideas.json`: ideas put to Noah in the last 14 days by the weekly idea generator.
+public struct IdeasSummary: Decodable, Equatable, Sendable {
+    public struct Idea: Decodable, Equatable, Sendable {
+        public var askedOn: String
+        public var n: Int
+        public var kind: String
+        public var title: String
+        public var whyNow: String
+        public var reuses: String?
+        public var size: String
+        public var ais: [String]?
+    }
+    public var ideas: [Idea]
 }
 
 /// Reads one app's feed file with the signed-in user's token (read-only, like every Hive app).
