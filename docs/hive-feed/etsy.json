@@ -1,0 +1,40 @@
+{
+ "schema": 1,
+ "app": "etsy",
+ "written_at": "2026-11-15T21:56:34Z",
+ "stale_after_minutes": 11520,
+ "detail": {
+  "repo": "ndabney562/etsy",
+  "branch": "main",
+  "path": "stats/2026-11-15-plan.json"
+ },
+ "summary": {
+  "week": "2026-11-15",
+  "listing_views_7d": 102,
+  "orders_7d": 2,
+  "revenue_7d_usd": 60.78,
+  "gumroad_sales_7d": 0,
+  "top": [
+   {
+    "name": "Dink Responsibly tee (6 breeds)",
+    "views": 33,
+    "sales": 1
+   },
+   {
+    "name": "Dink Responsibly Golden Retriever hoodie",
+    "views": 7,
+    "sales": 1
+   },
+   {
+    "name": "ADHD Homework Planner (PDF + iPad)",
+    "views": 4,
+    "sales": 0
+   }
+  ],
+  "changes": {
+   "edits": 0,
+   "new_versions": 2,
+   "asks": 1
+  }
+ }
+}
