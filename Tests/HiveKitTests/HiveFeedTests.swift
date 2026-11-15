@@ -82,4 +82,18 @@ struct HiveFeedTests {
                 == "https://api.github.com/repos/ndabney562/hivemind/contents/hive-tempo.json?ref=hive")
         #expect(stub.requests[0].httpMethod == "GET")
     }
+
+    @Test func decodesScoreReposReleasesAndIdeas() throws {
+        let score = try HiveFeed.decode(Data(#"{"schema":1,"app":"health-score","written_at":"2026-11-15T10:00:00Z","stale_after_minutes":90,"summary":{"method":9,"score":92,"word":"healthy","capped":false,"top_fixes":[],"repos":[{"repo":"ndabney562/hive-tempo","score":95}]}}"#.utf8), as: ScoreSummary.self)
+        #expect(score?.summary.repos == [.init(repo: "ndabney562/hive-tempo", score: 95)])
+
+        let rel = try HiveFeed.decode(Data(#"{"schema":1,"app":"releases","written_at":"2026-11-15T11:43:00Z","stale_after_minutes":10080,"summary":{"app":"hive-score","version":"1.0","build":"20261115.1143","commit":"abc1234","at":"2026-11-15T11:43:00Z","ready":true,"tests_passed":119,"screens":11,"under_load":false}}"#.utf8), as: ReleasesSummary.self)
+        #expect(rel?.summary.app == "hive-score")
+        #expect(rel?.summary.testsPassed == 119)
+        #expect(rel?.summary.ready == true)
+
+        let ideas = try HiveFeed.decode(Data(#"{"schema":1,"app":"ideas","written_at":"2026-11-15T08:00:00Z","stale_after_minutes":11520,"summary":{"ideas":[{"asked_on":"2026-11-15","n":1,"kind":"feature","title":"Quick add","why_now":"Helps focus","size":"S","ais":["Claude"]}]}}"#.utf8), as: IdeasSummary.self)
+        #expect(ideas?.summary.ideas.first?.askedOn == "2026-11-15")
+        #expect(ideas?.summary.ideas.first?.ais == ["Claude"])
+    }
 }
