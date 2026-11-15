@@ -1,6 +1,7 @@
 # Handoff: hive-kit
 
 - **Goal:** One Swift package with the Hive apps' shared logic, so HiveMind, HiveScore, HiveTempo and HiveRounds can't drift apart (Noah, 2026-11-07).
+- **2026-11-15 17:40 (Claude Opus 5.5): `etsy` joins the Hive feed** (Etsy sales loop, Noah's design 2026-11-15). Rows in `docs/hive-feed.md`, example `docs/hive-feed/etsy.json` (the real 2026-11-15 proof run). No Swift summary type: nothing reads it yet (like `ideas`); add `EtsySummary` when a second app needs it. Writer: Etsy repo `scripts/sales_loop.py --feed`, task `etsy-sales-loop` (Mondays 7:00). Next step: none here.
 - **Done:** 2026-11-15 (Gemini 4 Hydrogen, audit Phase 2) **Feed schema parity (`ScoreSummary.repos`, `ReleasesSummary`, `IdeasSummary`), `HiveApp.world`, and CI script checks.**
   - `HiveFeed.swift`: added `ScoreSummary.repos`, `ReleasesSummary`, and `IdeasSummary` matching `docs/hive-feed.md`.
   - `HiveStatus.swift`: added `HiveApp.world` (`hiveworld.json`, `HiveWorld`) and `HiveStatus.line(_ s: WorldSummary)`.
