@@ -20,8 +20,10 @@ public enum HiveErrorText {
             "The code ran out. Start again."
         case AuthError.github(let message):
             "GitHub sign-in failed: \(message)."
+        #if canImport(Security)
         case let e as KeychainError:
             "Couldn't save the sign-in on this device (Keychain error \(e.status))."
+        #endif
         default:
             error.localizedDescription
         }

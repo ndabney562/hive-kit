@@ -89,6 +89,8 @@ struct HiveAITests {
         #expect(OpenInApp.chatgpt.link(for: "").absoluteString == "https://chatgpt.com/")
         #expect(HiveErrorText.words(FetchError.offline, offline: "Cached") == "Cached")
         #expect(HiveErrorText.words(AuthError.denied) == "Sign-in was cancelled on GitHub.")
+        #if canImport(Security)
         #expect(HiveErrorText.words(KeychainError(status: -34018)).contains("-34018"))
+        #endif
     }
 }
