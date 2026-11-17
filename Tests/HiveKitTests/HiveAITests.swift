@@ -85,5 +85,12 @@ struct HiveAITests {
         #expect(OpenInApp.chatgpt.link(for: "x/y").absoluteString == "https://chatgpt.com/?q=x%2Fy")
         #expect(OpenInApp.gemini.link(for: "hi").absoluteString == "https://gemini.google.com/app")
         #expect(OpenInApp.allCases.map(\.name) == ["Claude", "ChatGPT", "Gemini"])
+        #expect(OpenInApp.claude.link(for: "   \n").absoluteString == "https://claude.ai/new")
+        #expect(OpenInApp.chatgpt.link(for: "").absoluteString == "https://chatgpt.com/")
+        #expect(HiveErrorText.words(FetchError.offline, offline: "Cached") == "Cached")
+        #expect(HiveErrorText.words(AuthError.denied) == "Sign-in was cancelled on GitHub.")
+        #if canImport(Security)
+        #expect(HiveErrorText.words(KeychainError(status: -34018)).contains("-34018"))
+        #endif
     }
 }

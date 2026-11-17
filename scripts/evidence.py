@@ -202,7 +202,8 @@ def build_settings(repo, app):
 def run_tests(repo, app, cmds):
     """Runs the commands (through heavy-guard when present). Returns (exit code, output, seconds, under_load)."""
     script = " && ".join(f"( {c} )" for c in cmds)
-    cmd = ["zsh", "-c", script]
+    shell = shutil.which("zsh") or "sh"
+    cmd = [shell, "-c", script]
     guard = os.environ.get("HEAVY_GUARD_BIN", str(HOME / "agent-rules" / "scripts" / "heavy-guard"))
     if os.access(guard, os.X_OK):
         cmd = [guard, f"{app}-tests", "--"] + cmd

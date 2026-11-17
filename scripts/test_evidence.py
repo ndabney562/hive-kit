@@ -78,8 +78,10 @@ class Fixture:
         else:
             (self.xcr / "att" / "manifest.json").write_text("[]")
         self.git("init", "-q")
+        self.git("config", "user.name", "t")
+        self.git("config", "user.email", "t@t")
         self.git("add", "-A")
-        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
+        self.git("commit", "-qm", "init")
 
     def git(self, *args):
         return subprocess.run(["git", *args], cwd=self.repo, check=True, capture_output=True, text=True).stdout

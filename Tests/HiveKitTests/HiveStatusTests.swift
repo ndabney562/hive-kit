@@ -46,6 +46,14 @@ struct HiveStatusTests {
         #expect(HiveStatus.line(HiveMindSummary(quota: [], alerts: [], now: nil)) == "No alerts")
     }
 
+    @Test func worldLine() {
+        let proj = WorldSummary.Project(id: "o/a", name: "Alpha", need: 9, reason: "due", paused: false)
+        let withPick = WorldSummary(schemaVersion: 1, pick: ["o/a"], projects: [proj])
+        #expect(HiveStatus.line(withPick) == "Next: Alpha")
+        #expect(HiveStatus.line(WorldSummary(schemaVersion: 1, pick: ["missing"], projects: [proj])) == "1 projects")
+        #expect(HiveStatus.line(WorldSummary(schemaVersion: 1, pick: [], projects: [])) == "No projects")
+    }
+
     @Test func staleStatusSaysWhen() {
         let written = ISO8601DateFormatter().date(from: "2026-11-09T14:26:00Z")!
         let s = HiveStatus(app: .tempo, line: "2 of 5 done", written: written, stale: true)
