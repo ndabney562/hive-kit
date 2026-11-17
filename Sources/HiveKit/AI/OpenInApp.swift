@@ -21,7 +21,8 @@ public enum OpenInApp: String, CaseIterable, Sendable {
         case .chatgpt: ("https://chatgpt.com/?q=", "https://chatgpt.com/")
         case .gemini: (nil, "https://gemini.google.com/app")
         }
-        if let prefill, prompt.count <= Self.linkMax,
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let prefill, !trimmed.isEmpty, prompt.count <= Self.linkMax,
            let q = prompt.addingPercentEncoding(withAllowedCharacters: Self.unreserved), let url = URL(string: prefill + q) {
             return url
         }

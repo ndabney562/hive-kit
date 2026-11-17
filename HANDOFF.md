@@ -1,6 +1,10 @@
 # Handoff: hive-kit
 
 - **Goal:** One Swift package with the Hive apps' shared logic, so HiveMind, HiveScore, HiveTempo and HiveRounds can't drift apart (Noah, 2026-11-07).
+- **2026-11-17 (Gemini 4 Hydrogen): `HiveErrorText`, `OpenInApp` whitespace guard, `HiveStatus.line(_:WorldSummary)` tests.**
+  - `Sources/HiveKit/ErrorText.swift`: extracted shared `HiveErrorText.words(_:offline:)` for `HealthScore` and `HiveTempo`.
+  - `Sources/HiveKit/AI/OpenInApp.swift`: empty/whitespace prompts now fall back to each app's home URL instead of `?q=`.
+  - Tests: `HiveStatusTests.worldLine()` and `HiveAITests` cover `WorldSummary` status lines, empty `OpenInApp` prompts, and `HiveErrorText`.
 - **2026-11-15 17:40 (Claude Opus 5.5): `etsy` joins the Hive feed** (Etsy sales loop, Noah's design 2026-11-15). Rows in `docs/hive-feed.md`, example `docs/hive-feed/etsy.json` (the real 2026-11-15 proof run). No Swift summary type: nothing reads it yet (like `ideas`); add `EtsySummary` when a second app needs it. Writer: Etsy repo `scripts/sales_loop.py --feed`, task `etsy-sales-loop` (Mondays 7:00). Next step: none here.
 - **Done:** 2026-11-15 (Gemini 4 Hydrogen, audit Phase 2) **Feed schema parity (`ScoreSummary.repos`, `ReleasesSummary`, `IdeasSummary`), `HiveApp.world`, and CI script checks.**
   - `HiveFeed.swift`: added `ScoreSummary.repos`, `ReleasesSummary`, and `IdeasSummary` matching `docs/hive-feed.md`.
@@ -18,6 +22,6 @@
 - **In progress:** nothing. HiveRounds uses it (hive-rounds PR 5, `1c08bb6`).
 - **Next step (exact):** none open. Task 4 is done (checked 2026-11-14: HiveRounds is on hive-kit 1.10.0, HiveMind on 1.8.0; HiveMind stays there while it is frozen, bug fixes only). Every Hive link from the 2026-11-08 spec is done, and on 2026-11-10 all 4 apps moved to hive-kit 1.6.1 and hive-design 1.5.0 (hive-tempo #73, hivemind #332, health-score #64, hive-rounds #29); HiveScore's "Hive packages" card (health-score #63) now says they are all current. After the next hive-kit or hive-design release, update the apps the card lists [Claude Code, at the next release].
 - **Blockers:** none.
-- **Last test result:** 2026-11-13 (docs/ideas-feed) `swift test` + testflight, asc_check and asc_public_link script tests: all passed.
+- **Last test result:** 2026-11-17: `swift test` (93 tests in 8 suites) and script tests passed.
 - **Last commit hash:** see `git log -1`.
-- **Model + timestamp:** Claude Opus 5.5, 2026-11-13 (idea generator).
+- **Model + timestamp:** Gemini 4 Hydrogen, 2026-11-17.
