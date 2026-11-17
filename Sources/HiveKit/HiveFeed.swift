@@ -126,6 +126,20 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
         public var monthByRoute: [String: Double]?
         public var goalUsd: Double?
         public var lastSale: Sale?
+        /// Deposits on their way (gross minus fees); added 2026-11-17 (Hive build order #2).
+        public var payouts: Payouts?
+    }
+
+    public struct Payouts: Decodable, Equatable, Sendable {
+        public struct Due: Decodable, Equatable, Sendable { public var date: String; public var usd: Double }
+        public struct Late: Decodable, Equatable, Sendable { public var date: String; public var route: String; public var usd: Double }
+        /// The earliest payout date still ahead, and what lands then.
+        public var next: Due?
+        public var waitingUsd: Double
+        public var paidUsd: Double
+        /// Pending sales more than 7 days past their payout date: no deposit recorded, check the platform.
+        public var overdue: [Late]
+        public var overdueUsd: Double
     }
 }
 
