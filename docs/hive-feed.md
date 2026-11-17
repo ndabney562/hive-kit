@@ -48,6 +48,7 @@ ones); removing a field or changing its meaning bumps `schema`.
 | hiveworld | `pick` | project ids most in need first (paused and finished never listed); read by HiveTempo |
 | hiveworld | `projects[]` | per repo: `id` (owner/repo), `name`, `score`, `momentum` {`weekly`[12], `usual`, `change_pct`, `status`}, `progress` {`done`, `total`, `forecast`}, `next_step`, `need`, `reason`, `paused`, `stale`, `as_of`, `n` and more; full list in HiveWorld's spec. `WorldSummary` decodes the fields HiveTempo needs |
 | ai-business-db | `next_checkpoint` | `{date, title}` of the next challenge checkpoint, or null |
+| ai-business-db | `income` | from `income/ledger.csv`: `net_usd`, `month_net_usd`, `pending_usd`, `sales`, `by_route` {route: net}, `last_sale` {date, route, item, net_usd}; since 2026-11-17 also `month` (YYYY-MM), `month_by_route` {route: net this month} and `goal_usd` (rule 15, 100). `IncomeGoal` reads the best route this month against the goal. Absent in older files |
 | iphone | `free_gb`, `total_gb`, `free_pct` | the iPhone's free and total storage (GB, 1 decimal) and free share (%) from the Mac's weekly scan (ai-scheduled `iphone_health.py`; never the app list) |
 | iphone | `battery_health_pct` | battery capacity left vs new (%), or null |
 | iphone | `ios`, `ios_latest`, `update_pending` | installed iOS, Apple's newest for the model (null when unknown), and whether an update waits. Read by HiveScore (`PhoneSummary` in HealthScoreKit; moves here when a second app reads it) |
