@@ -27,6 +27,18 @@ struct IncomeGoalTests {
         #expect(income.lastSale?.route == "Notion templates")
     }
 
+    @Test func decodesPayouts() throws {
+        var income = november
+        income["payouts"] = ["next": ["date": "2026-11-27", "usd": 34.89], "waiting_usd": 66.65, "paid_usd": 0,
+                             "overdue": [["date": "2026-11-20", "route": "Clipping", "usd": 5.0]], "overdue_usd": 5.0]
+        let p = try #require(try business(income).income?.payouts)
+        #expect(p.next == .init(date: "2026-11-27", usd: 34.89))
+        #expect(p.waitingUsd == 66.65)
+        #expect(p.overdue.first?.route == "Clipping")
+        #expect(p.overdueUsd == 5.0)
+        #expect(try business(november).income?.payouts == nil, "older feeds have no payouts")
+    }
+
     @Test func bestRouteMeasuredAgainstGoal() throws {
         let goal = try #require(IncomeGoal(try business(november)))
         #expect(goal.month == "2026-11")
