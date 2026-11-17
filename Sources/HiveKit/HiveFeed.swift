@@ -109,6 +109,48 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
     public var earnedUsd: Double
     public var routes: [Route]
     public var nextCheckpoint: Checkpoint?
+    /// Every sale from `income/ledger.csv`; nil in feeds written before the ledger existed.
+    public var income: Income?
+
+    public struct Income: Decodable, Equatable, Sendable {
+        public struct Sale: Decodable, Equatable, Sendable {
+            public var date: String; public var route: String; public var item: String; public var netUsd: Double
+        }
+        public var netUsd: Double
+        public var monthNetUsd: Double
+        public var pendingUsd: Double
+        public var sales: Int
+        public var byRoute: [String: Double]?
+        /// The calendar month (YYYY-MM) `monthByRoute` covers; with `goalUsd`, added 2026-11-17.
+        public var month: String?
+        public var monthByRoute: [String: Double]?
+        public var goalUsd: Double?
+        public var lastSale: Sale?
+    }
+}
+
+/// Rule 15 at a glance: the best-earning route this month against the $100 goal (no new route starts before it).
+public struct IncomeGoal: Equatable, Sendable {
+    public var month: String
+    public var monthNet: Double
+    public var goal: Double
+    public var bestRoute: String?
+    public var best: Double
+    public var met: Bool { best >= goal }
+    /// 0...1, how far the best route is toward the goal.
+    public var progress: Double { goal > 0 ? min(1, max(0, best / goal)) : 0 }
+    public var left: Double { max(0, goal - best) }
+
+    /// nil when the feed predates the monthly fields.
+    public init?(_ business: BusinessSummary) {
+        guard let income = business.income, let month = income.month, let byRoute = income.monthByRoute else { return nil }
+        let top = byRoute.max { ($0.value, $1.key) < ($1.value, $0.key) }
+        self.month = month
+        self.monthNet = income.monthNetUsd
+        self.goal = income.goalUsd ?? 100
+        self.bestRoute = (top?.value ?? 0) > 0 ? top?.key : nil
+        self.best = max(0, top?.value ?? 0)
+    }
 }
 
 /// `releases.json`: the newest TestFlight upload of any Hive app, from `release-evidence/<build>/evidence.json`.
