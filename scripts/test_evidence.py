@@ -318,7 +318,7 @@ class ChangesTest(unittest.TestCase):
             self.assertTrue(ev.phone_file(path), path)
         for path in ("AppKit/Tests/AppKitTests/GlanceTests.swift", "AppUITests/SmokeTests.swift", "HANDOFF.md",
                      "release-evidence/7/evidence.json", "docs/x.json", "scripts/x.py", "AppKit/Package.swift",
-                     "AppKit/Package.resolved"):
+                     "AppKit/Package.resolved", "restore-evidence/2026-11-18-app.json", "load-evidence/x.json"):
             self.assertFalse(ev.phone_file(path), path)
 
     def test_changes_since_the_previous_build(self):
