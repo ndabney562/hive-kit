@@ -23,6 +23,13 @@ struct HiveLinkTests {
         }
     }
 
+    @Test func aBadIDOpensTodayInsteadOfCrashing() {
+        #expect(HiveLink.tempoTask("reply comments\n").url.absoluteString == "hivetempo://today")
+        #expect(HiveLink.tempo(task: "a/b") == .tempoToday)
+        #expect(HiveLink.tempo(task: nil) == .tempoToday)
+        #expect(HiveLink.tempo(task: "a-2026-11-18") == .tempoTask("a-2026-11-18"))
+    }
+
     @Test func fallbacksSayWhatHappened() {
         #expect(HiveLink.tempoTask("x").notInstalled.hasPrefix("HiveTempo isn't on this iPhone"))
         #expect(HiveLink.tempoTask("x").missing.contains("here is Today"))

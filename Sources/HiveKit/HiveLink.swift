@@ -24,8 +24,16 @@ public enum HiveLink: Equatable, Hashable, Sendable {
         return switch self {
         case .open: URL(string: "\(scheme)://")!
         case .tempoToday: URL(string: "\(scheme)://today")!
-        case .tempoTask(let id): URL(string: "\(scheme)://task/\(id)")!
+        // An id that isn't one (spaces, slashes) never reaches a URL: the link opens Today instead of crashing.
+        case .tempoTask(let id) where Self.isID(id): URL(string: "\(scheme)://task/\(id)")!
+        case .tempoTask: URL(string: "\(scheme)://today")!
         }
+    }
+
+    /// The link for a task id from the feed: that task, or Today when there is no id or it isn't a valid one.
+    public static func tempo(task id: String?) -> HiveLink {
+        guard let id, isID(id) else { return .tempoToday }
+        return .tempoTask(id)
     }
 
     /// What the link opens, in words ("HiveTempo › task reply-comments-2026-11-18").
