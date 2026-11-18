@@ -223,6 +223,51 @@ public struct IdeasSummary: Decodable, Equatable, Sendable {
     public var ideas: [Idea]
 }
 
+/// `jobs.json` (Hive build order #10, Watch 11): every automation on the Mac, from hive-tempo's planner, which reuses
+/// the FAILED TODAY check. Failed jobs come first; related failures are grouped into `issues`. A task's or routine's
+/// own report never appears, only its cause.
+public struct JobsSummary: Decodable, Equatable, Sendable {
+    public struct Counts: Decodable, Equatable, Sendable {
+        public var failed: Int; public var running: Int; public var waiting: Int; public var finished: Int
+    }
+    public struct LastOK: Decodable, Equatable, Sendable {
+        /// "YYYY-MM-DD HH:MM", local to the Mac.
+        public var at: String
+        public var output: String?
+    }
+    public struct Job: Decodable, Equatable, Sendable {
+        /// launchd, task or routine.
+        public var kind: String
+        public var name: String
+        /// running, waiting, failed or finished.
+        public var status: String
+        /// HH:MM of today's run (tasks and routines).
+        public var at: String?
+        /// The last line of a launchd job's own log.
+        public var output: String?
+        /// A failed launchd job's exit code and error line.
+        public var detail: String?
+        /// A failed task's or routine's cause, in words.
+        public var cause: String?
+        /// A failed job's latest successful output.
+        public var lastOk: LastOK?
+        /// Marked fixed today (hive-tempo planner/handled.py).
+        public var handled: Bool?
+    }
+    /// Failed jobs with one cause: one issue.
+    public struct Issue: Decodable, Equatable, Sendable {
+        public var cause: String
+        public var jobs: [String]
+        /// A script's own error line, when one names it.
+        public var example: String?
+    }
+    public var counts: Counts
+    public var issues: [Issue]
+    public var jobs: [Job]
+    /// Sources the Mac could not read this time.
+    public var problems: [String]?
+}
+
 /// Reads one app's feed file with the signed-in user's token (read-only, like every Hive app).
 public struct HiveFeedReader: Sendable {
     /// The raw `<app>.json` bytes, or nil when the file doesn't exist yet.

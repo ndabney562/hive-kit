@@ -1,0 +1,10 @@
+{"schema": 1, "app": "jobs", "written_at": "2026-11-17T23:30:00Z", "stale_after_minutes": 90,
+ "summary": {"counts": {"failed": 2, "running": 1, "waiting": 1, "finished": 2},
+             "issues": [{"cause": "sign-in or permission refused", "jobs": ["pinterest-pins", "Pinterest"]}],
+             "jobs": [{"kind": "task", "name": "pinterest-pins", "status": "failed", "at": "08:48", "cause": "sign-in or permission refused"},
+                      {"kind": "routine", "name": "Pinterest", "status": "failed", "at": "09:00", "cause": "sign-in or permission refused"},
+                      {"kind": "launchd", "name": "hivemind-ui", "status": "running"},
+                      {"kind": "launchd", "name": "weekly-review", "status": "waiting"},
+                      {"kind": "launchd", "name": "daily-check", "status": "finished", "output": "2026-11-17 all green"},
+                      {"kind": "task", "name": "opportunity-scan", "status": "finished", "at": "07:05"}],
+             "problems": []}}

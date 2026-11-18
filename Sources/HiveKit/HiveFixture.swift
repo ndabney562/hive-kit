@@ -99,6 +99,7 @@ public enum HiveFixture {
         case "ai-business-db": return await classify(BusinessSummary.self)
         case "releases": return await classify(ReleasesSummary.self)
         case "ideas": return await classify(IdeasSummary.self)
+        case "jobs": return await classify(JobsSummary.self)
         default: return await classify(AnySummary.self)
         }
     }
@@ -134,7 +135,7 @@ public enum HiveFixture {
     /// Each app's own window (docs/hive-feed/*.json).
     static let staleAfter: [String: Int] = [
         "hivemind": 90, "hive-tempo": 90, "health-score": 120, "hiveworld": 1560, "ai-business-db": 360,
-        "releases": 11520, "ideas": 11520, "iphone": 11520,
+        "releases": 11520, "ideas": 11520, "iphone": 11520, "jobs": 90,
     ]
 
     static let normal: [String: String] = [
@@ -177,6 +178,21 @@ public enum HiveFixture {
         {"ideas": [{"asked_on": "{{today}}", "n": 1, "kind": "feature", "title": "Sample idea", "why_now": "Sample reason",
                     "reuses": "Hive feed", "size": "S", "ais": ["claude"]}]}
         """,
+        "jobs": """
+        {"counts": {"failed": 3, "running": 1, "waiting": 2, "finished": 2},
+         "issues": [{"cause": "sign-in or permission refused", "jobs": ["sample-pins", "sample-routine"]},
+                    {"cause": "stopped with exit code 1 and no message", "jobs": ["sample-backup"]}],
+         "jobs": [{"kind": "launchd", "name": "sample-backup", "status": "failed", "detail": "exit 1.",
+                   "last_ok": {"at": "{{today}} 04:00", "output": "Sample: 12 files copied"}},
+                  {"kind": "task", "name": "sample-pins", "status": "failed", "at": "09:00", "cause": "sign-in or permission refused"},
+                  {"kind": "routine", "name": "sample-routine", "status": "failed", "at": "09:30", "cause": "sign-in or permission refused"},
+                  {"kind": "launchd", "name": "sample-server", "status": "running", "output": "Sample: listening"},
+                  {"kind": "launchd", "name": "sample-weekly", "status": "waiting"},
+                  {"kind": "task", "name": "sample-evening", "status": "waiting"},
+                  {"kind": "launchd", "name": "sample-cleanup", "status": "finished", "output": "Sample: freed 1.2 GB"},
+                  {"kind": "task", "name": "sample-morning", "status": "finished", "at": "07:00"}],
+         "problems": []}
+        """,
         "iphone": """
         {"scanned": "{{today}}T09:00", "free_gb": 18.5, "total_gb": 128.0, "free_pct": 14.5, "battery_health_pct": 88.0,
          "ios": "27.0", "ios_latest": "27.1", "update_pending": true}
@@ -200,6 +216,7 @@ public enum HiveFixture {
          "ready": false, "override": null, "tests_passed": null, "screens": null, "under_load": null}
         """,
         "ideas": #"{"ideas": []}"#,
+        "jobs": #"{"counts": {"failed": 0, "running": 0, "waiting": 0, "finished": 0}, "issues": [], "jobs": [], "problems": []}"#,
         "iphone": """
         {"scanned": "{{today}}T09:00", "free_gb": null, "total_gb": null, "free_pct": null, "battery_health_pct": null,
          "ios": null, "ios_latest": null, "update_pending": false}
