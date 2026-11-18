@@ -39,6 +39,24 @@ struct IncomeGoalTests {
         #expect(try business(november).income?.payouts == nil, "older feeds have no payouts")
     }
 
+    @Test func decodesBudget() throws {
+        var summary: [String: Any] = ["day": 9, "days_total": 90, "ends": "2027-02-06", "earned_usd": 19.24,
+                                      "routes": [] as [Any], "next_checkpoint": NSNull()]
+        summary["budget"] = ["month_usd": 158.25, "estimates": 1,
+                             "items": [["name": "Claude Max", "usd_month": 125.0, "estimate": false],
+                                       ["name": "Apple Developer Program", "usd_month": 8.25, "estimate": true]],
+                             "credit": [["project": "HiveMind", "allot_usd": 25.0, "used_usd": 9.17],
+                                        ["project": "AI business", "allot_usd": 50.0, "used_usd": NSNull()]]]
+        let doc: [String: Any] = ["schema": 1, "app": "ai-business-db", "written_at": "2026-11-17T17:00:00Z",
+                                  "stale_after_minutes": 360, "summary": summary]
+        let b = try #require(try HiveFeed.decode(JSONSerialization.data(withJSONObject: doc), as: BusinessSummary.self)?.summary.budget)
+        #expect(b.monthUsd == 158.25)
+        #expect(b.items.last?.estimate == true)
+        #expect(b.credit.first?.usedUsd == 9.17)
+        #expect(b.credit.last?.usedUsd == nil)
+        #expect(try business(november).budget == nil, "older feeds have no budget")
+    }
+
     @Test func bestRouteMeasuredAgainstGoal() throws {
         let goal = try #require(IncomeGoal(try business(november)))
         #expect(goal.month == "2026-11")
