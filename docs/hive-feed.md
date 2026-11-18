@@ -72,9 +72,22 @@ summary, in six scenarios: `normal`, `empty` (fresh files with nothing in them),
 lists what `HiveFeedReader.read` gives each app in each scenario. A new app's summary gets a normal and an empty
 fixture in `Sources/HiveKit/HiveFixture.swift`.
 
+## Contract check (FeedContract, 1.20.0)
+
+A feed file passes when the type its readers decode reads it (`FeedContract.known`: one per app with a reader in
+hive-kit; an app adds its own, e.g. HiveScore's `iphone`). Problems read as sentences in the feed's own names
+(`summary.income.month: missing`, `summary.done: not a number`, `schema is 2, readers know 1`). Before changing a
+feed's fields, run the new file through the readers:
+
+    swift run --package-path ~/AI.Stuff/hive-kit hive-feed-check <app> <file.json>   # exit 0 passes, 1 problems
+
+Every example in `docs/hive-feed/` passes in hive-kit's tests, and HiveScore checks the live files on every refresh and
+lists any that fail in its "Hive feed problems" card. A missing or unreachable file is not a contract break.
+
 ## A new app joins
 
 1. Pick its summary fields; add a `Decodable` summary type in `Sources/HiveKit/HiveFeed.swift`, an example in
    `docs/hive-feed/<app>.json` and a row group above (new hive-kit minor version and tag).
 2. Its Mac job writes the envelope to a file and runs `hivemind feed publish <app> <file>`.
-3. Readers that want it use `HiveFeedReader` or `hivemind feed show <app> --json`. Every reader works without it.
+3. Add a `FeedContract.Contract` for its summary type and run `hive-feed-check` on the example.
+4. Readers that want it use `HiveFeedReader` or `hivemind feed show <app> --json`. Every reader works without it.
