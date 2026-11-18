@@ -260,7 +260,9 @@ MAX_APPS = 8
 
 
 def phone_file(path):
-    if path.startswith(NOT_PHONE_DIRS) or "/" not in path and not path.endswith(PHONE_EXT):
+    top = path.split("/", 1)[0]
+    if path.startswith(NOT_PHONE_DIRS) or "/" in path and top.endswith("-evidence") \
+            or "/" not in path and not path.endswith(PHONE_EXT):
         return False
     parts = path.split("/")
     if any(p.endswith(("Tests", "UITests")) or p == "Tests" for p in parts[:-1]) or parts[-1] == "Package.swift":
