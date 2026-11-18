@@ -12,6 +12,7 @@ let package = Package(
     targets: [
         .target(name: "HiveKit"),
         .executableTarget(name: "hive-feed-check", dependencies: ["HiveKit"]),
+        .executableTarget(name: "hive-link-check", dependencies: ["HiveKit"]),
         .testTarget(name: "HiveKitTests", dependencies: ["HiveKit"]),
     ]
 )

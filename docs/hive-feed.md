@@ -37,7 +37,7 @@ ones); removing a field or changing its meaning bumps `schema`.
 | hivemind | `now` | the current improvement item, one line |
 | hive-tempo | `date`, `state` | today; a widget phase: unavailable, empty, scheduled, inProgress, finished, outOfTime |
 | hive-tempo | `done`, `total` | tasks ticked / planned today |
-| hive-tempo | `current`, `next` | `{title, until}` / `{title, at}` (HH:MM, local), or null |
+| hive-tempo | `current`, `next` | `{title, until}` / `{title, at}` (HH:MM, local), or null; since hive-kit 1.22.0 also `id` (the task's id, for `HiveLink.tempoTask`: opens that task in HiveTempo) |
 | health-score | `method`, `score`, `word`, `capped` | the HiveScore reading (scoring method, 0-100, band word, safety cap) |
 | health-score | `top_fixes[]` | `{id, repo, title, points}`, at most 3, biggest gain first |
 | health-score | `repos[]` | `{repo, score}`: each scored repo's own score (0-100, the same method run on that repo alone); read by HiveWorld. Absent in files written before 2026-11-11 |
