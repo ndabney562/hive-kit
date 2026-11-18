@@ -1,6 +1,7 @@
 # Handoff: hive-kit
 
 - **Goal:** One Swift package with the Hive apps' shared logic, so HiveMind, HiveScore, HiveTempo and HiveRounds can't drift apart (Noah, 2026-11-07).
+- **2026-11-17 (Claude Opus 5.5): 1.18.0 `HiveFixture`** (Hive build order #9, Fixture 57). Fixed, fictional feed files for every app with a summary (hivemind, hive-tempo, health-score, hiveworld, ai-business-db, releases, ideas, iphone) in six scenarios: normal, empty, missing, stale, offline, malformed. Same `now`, same bytes. `HiveFixture.reader(_:now:)` serves them; apps launched with `-hive-fixture <scenario>` use it (HiveScore first, its UI test screenshots each state). `HiveFixture.preview(now:)` lists what a reader gets per app and scenario. Tests `HiveFixtureTests` (incl. no personal data: the repo is public). Next step: none here.
 - **2026-11-17 (Gemini 4 Hydrogen): `HiveErrorText`, `OpenInApp` whitespace guard, `HiveStatus.line(_:WorldSummary)` tests.**
   - `Sources/HiveKit/ErrorText.swift`: extracted shared `HiveErrorText.words(_:offline:)` for `HealthScore` and `HiveTempo`.
   - `Sources/HiveKit/AI/OpenInApp.swift`: empty/whitespace prompts now fall back to each app's home URL instead of `?q=`.

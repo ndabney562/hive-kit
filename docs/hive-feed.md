@@ -59,6 +59,16 @@ ones); removing a field or changing its meaning bumps `schema`.
 | etsy | `week`, `listing_views_7d`, `orders_7d`, `revenue_7d_usd`, `gumroad_sales_7d` | the Etsy shop's last 7 days (Etsy Shop Stats) and Gumroad sales, from the Etsy repo's `scripts/sales_loop.py --feed`; written Mondays 7:00 by the `etsy-sales-loop` task (stale after 8 days). Shop totals only: never buyer names, messages or addresses |
 | etsy | `top[]`, `changes` | `{name, views, sales}` for the 3 busiest products (Etsy + Gumroad); `{edits, new_versions, asks}`: what the loop changed or asked this week. No Swift reader yet |
 
+## Test scenarios (HiveFixture, 1.18.0)
+
+`HiveFixture` holds fixed, fictional feed files (no personal data: every name is made up) for each app above with a
+summary, in six scenarios: `normal`, `empty` (fresh files with nothing in them), `missing` (no files), `stale`
+(written long before now), `offline` (every read throws `FetchError.offline`) and `malformed` (cut-off JSON). A fixed
+`now` gives the same bytes every time. An app started with `-hive-fixture <scenario>` reads
+`HiveFixture.reader(scenario)` instead of GitHub, so its UI test can screenshot each state. `HiveFixture.preview(now:)`
+lists what `HiveFeedReader.read` gives each app in each scenario. A new app's summary gets a normal and an empty
+fixture in `Sources/HiveKit/HiveFixture.swift`.
+
 ## A new app joins
 
 1. Pick its summary fields; add a `Decodable` summary type in `Sources/HiveKit/HiveFeed.swift`, an example in
