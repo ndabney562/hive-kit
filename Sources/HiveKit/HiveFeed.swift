@@ -54,7 +54,13 @@ public struct HiveMindSummary: Decodable, Equatable, Sendable {
 /// `hive-tempo.json`: today's plan. `state` is one of HiveTempo's widget phases (unavailable, empty, scheduled,
 /// inProgress, finished, outOfTime).
 public struct TempoSummary: Decodable, Equatable, Sendable {
-    public struct Task: Decodable, Equatable, Sendable { public var title: String; public var until: String?; public var at: String? }
+    /// `id`: the task's HiveTempo id, for `HiveLink.tempoTask` (feeds before hive-kit 1.22.0 have none).
+    public struct Task: Decodable, Equatable, Sendable {
+        public var title: String
+        public var until: String?
+        public var at: String?
+        public var id: String?
+    }
     public var date: String
     public var state: String
     public var done: Int
