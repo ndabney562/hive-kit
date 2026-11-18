@@ -33,26 +33,28 @@ public enum HiveFixture {
     public static var apps: [String] { normal.keys.sorted() }
 
     /// One feed file as the reader would fetch it: nil when it does not exist; throws `FetchError.offline` offline.
-    public static func file(_ app: String, _ scenario: Scenario, now: Date) throws -> Data? {
+    /// `timeZone` is the reader's: `date` and `HH:MM` fields in the feed are local (hive-tempo writes its own day).
+    public static func file(_ app: String, _ scenario: Scenario, now: Date, timeZone: TimeZone = .current) throws -> Data? {
         guard let normalText = normal[app], let emptyText = empty[app] else { return nil }
         switch scenario {
         case .missing: return nil
         case .offline: throw FetchError.offline
-        case .normal: return Data(fill(normalText, app: app, now: now, writtenAgo: 10 * 60).utf8)
-        case .empty: return Data(fill(emptyText, app: app, now: now, writtenAgo: 10 * 60).utf8)
+        case .normal: return Data(fill(normalText, app: app, now: now, writtenAgo: 10 * 60, timeZone: timeZone).utf8)
+        case .empty: return Data(fill(emptyText, app: app, now: now, writtenAgo: 10 * 60, timeZone: timeZone).utf8)
         case .stale:
             // Twice its own stale window plus a day: old by any reader's measure.
             let window = TimeInterval(staleAfter[app, default: 60] * 60)
-            return Data(fill(normalText, app: app, now: now, writtenAgo: 2 * window + 86_400).utf8)
+            return Data(fill(normalText, app: app, now: now, writtenAgo: 2 * window + 86_400, timeZone: timeZone).utf8)
         case .malformed:
-            let whole = fill(normalText, app: app, now: now, writtenAgo: 10 * 60)
+            let whole = fill(normalText, app: app, now: now, writtenAgo: 10 * 60, timeZone: timeZone)
             return Data(whole.prefix(whole.count / 2).utf8)
         }
     }
 
     /// A feed reader that serves the scenario's files.
-    public static func reader(_ scenario: Scenario, now: @escaping @Sendable () -> Date = Date.init) -> HiveFeedReader {
-        HiveFeedReader { app in try file(app, scenario, now: now()) }
+    public static func reader(_ scenario: Scenario, now: @escaping @Sendable () -> Date = Date.init,
+                              timeZone: TimeZone = .current) -> HiveFeedReader {
+        HiveFeedReader { app in try file(app, scenario, now: now(), timeZone: timeZone) }
     }
 
     /// What a reader gets from one file: shown, shown as old, nothing yet, offline or unreadable.
@@ -67,10 +69,10 @@ public enum HiveFixture {
     }
 
     /// Every app with a hive-kit summary type, in every scenario: what `HiveFeedReader.read` gives an app.
-    public static func preview(now: Date) async -> [Row] {
+    public static func preview(now: Date, timeZone: TimeZone = .current) async -> [Row] {
         var rows: [Row] = []
         for scenario in Scenario.allCases {
-            let reader = reader(scenario, now: { now })
+            let reader = reader(scenario, now: { now }, timeZone: timeZone)
             for app in apps {
                 rows.append(Row(app: app, scenario: scenario, outcome: await outcome(app, reader: reader, now: now)))
             }
@@ -106,14 +108,14 @@ public enum HiveFixture {
 
     // MARK: - The files
 
-    /// `{{written}}`, `{{recent}}` (5 minutes before now), `{{today}}` and `{{later}}` (an hour from now, HH:MM) are
-    /// filled in from `now`, in UTC, so a fixed `now` gives the same bytes every time.
-    static func fill(_ text: String, app: String, now: Date, writtenAgo: TimeInterval) -> String {
+    /// `{{recent}}` (5 minutes before now, UTC), `{{today}}` and `{{later}}` (an hour from now, HH:MM) in `timeZone`
+    /// are filled in from `now`, so a fixed `now` and time zone give the same bytes every time.
+    static func fill(_ text: String, app: String, now: Date, writtenAgo: TimeInterval, timeZone: TimeZone) -> String {
         let iso = ISO8601DateFormatter()
         iso.timeZone = TimeZone(identifier: "UTC")
         let day = DateFormatter()
         day.locale = Locale(identifier: "en_US_POSIX")
-        day.timeZone = TimeZone(identifier: "UTC")
+        day.timeZone = timeZone
         day.dateFormat = "yyyy-MM-dd"
         let clock = DateFormatter()
         clock.locale = day.locale
