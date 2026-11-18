@@ -51,6 +51,10 @@ struct HiveSetupTests {
         #expect(HiveSetup.started(app: "hive-tempo", defaults: d))
         #expect(back.current?.id == "alerts")
         #expect(back.resumeNote == "Welcome back: 1 of 3 done. Pick up where you left off.")
+        // Signed out before relaunching: nothing is left done, so no "0 of 3 done".
+        var out = back
+        out.sync(["github": false])
+        #expect(out.resumeNote == nil)
     }
 
     @Test func theDevicesRealStateMarksAndReopensSteps() {

@@ -64,8 +64,8 @@ public struct HiveSetup: Equatable, Sendable {
 
     /// "Welcome back: 1 of 3 done. Pick up where you left off." after an interrupted setup, else nil.
     public var resumeNote: String? {
-        guard resumed, !finished else { return nil }
         let done = steps.filter { state($0.id) != .todo }.count
+        guard resumed, !finished, done > 0 else { return nil }
         return "Welcome back: \(done) of \(steps.count) done. Pick up where you left off."
     }
 
