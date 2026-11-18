@@ -324,18 +324,35 @@ class ChangesTest(unittest.TestCase):
     def test_changes_since_the_previous_build(self):
         first = self.commit(["App/A.swift"], "First (#1)")
         (self.repo / "release-evidence" / "20990101.1000").mkdir(parents=True)
-        (self.repo / "release-evidence" / "20990101.1000" / "evidence.json").write_text(json.dumps({"commit": first}))
+        (self.repo / "release-evidence" / "20990101.1000" / "evidence.json").write_text(json.dumps({"commit": first, "ready": True}))
         self.commit(["release-evidence/20990101.1000/evidence.json"], "Release evidence for 20990101.1000 (#2)")
         self.commit(["App/Card.swift", "AppTests/CardTests.swift"], "New card (#3)")
         head = self.commit(["HANDOFF.md", "AppKit/Tests/AppKitTests/T.swift"], "Docs and tests only")
+        # A later attempt that failed (not uploaded) is never the baseline; nor is a ready one never uploaded.
+        for name, data in (("20990101.1100", {"commit": first, "ready": False, "changes": []}),
+                           ("20990101.1200", {"commit": first, "ready": True, "changes": []})):
+            (self.repo / "release-evidence" / name).mkdir(parents=True)
+            (self.repo / "release-evidence" / name / "evidence.json").write_text(json.dumps(data))
         build, base = ev.previous_release(self.repo, "20990102.1000")
-        self.assertEqual((build, base), ("20990101.1000", first))
+        self.assertEqual((build, base), ("20990101.1000", first))  # a pre-1.21 file: committed, so it was uploaded
         self.assertEqual(ev.previous_release(self.repo, "20990101.1000"), (None, None))  # never itself or later
         changes = ev.changes_since(self.repo, base, head)
         self.assertEqual(changes, [{"title": "Docs and tests only", "pr": None, "phone": False},
                                    {"title": "New card", "pr": 3, "phone": True}])
         self.assertEqual(ev.changes_since(self.repo, None, head), [])
         self.assertEqual(ev.changes_since(self.repo, "0" * 40, head), [])  # unknown base: nothing claimed
+
+
+class UploadedTest(unittest.TestCase):
+    def test_uploaded_marks_the_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp, "evidence.json")
+            f.write_text(json.dumps({"commit": "abc", "ready": True, "changes": []}))
+            self.assertEqual(ev.main(["--uploaded", str(f)]), 0)
+            self.assertRegex(json.loads(f.read_text())["uploaded_at"], r"^\d{4}-\d\d-\d\dT")
+            os.makedirs(Path(tmp, "release-evidence", "7"))
+            os.replace(f, Path(tmp, "release-evidence", "7", "evidence.json"))
+            self.assertEqual(ev.previous_release(Path(tmp), "8"), ("7", "abc"))
 
 
 class FeedMergeTest(unittest.TestCase):

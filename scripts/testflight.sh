@@ -101,7 +101,23 @@ if [ "$dry" -eq 0 ]; then
   hm=${HIVE_HIVEMIND:-$(command -v hivemind || true)}
   [ -z "$hm" ] && [ -x "$HOME/AI.Stuff/HiveMind/hivemind" ] && hm=$HOME/AI.Stuff/HiveMind/hivemind
   ev_json="$here/release-evidence/$build/evidence.json"
+  # Only an uploaded build may be the next one's baseline (evidence.py previous_release).
+  [ -f "$ev_json" ] && { python3 -I "$evidence_py" --uploaded "$ev_json" || echo "testflight.sh: couldn't mark build $build uploaded in $ev_json." >&2; }
   if [ -z "${HIVE_NO_FEED:-}" ] && [ -n "$hm" ] && [ -f "$ev_json" ]; then
+    # One app at a time reads, merges and publishes `releases`, so two uploads can't drop each other's entry.
+    lock=${HIVE_FEED_LOCK:-$HOME/.hive-releases-feed.lock}
+    tries=0; locked=0
+    until mkdir "$lock" 2>/dev/null && locked=1; do
+      tries=$((tries + 1))
+      # A lock left by a killed run (older than 10 minutes) is taken over.
+      if [ -n "$(find "$lock" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then rmdir "$lock" 2>/dev/null; continue; fi
+      [ "$tries" -ge "${HIVE_FEED_LOCK_TRIES:-90}" ] && break
+      sleep 2
+    done
+  fi
+  if [ "${locked:-0}" -eq 0 ] && [ -n "${lock:-}" ]; then
+    echo "testflight.sh: the releases feed stayed locked for 3 minutes; build $build not published to it (the upload is fine)." >&2
+  elif [ "${locked:-0}" -eq 1 ]; then
     feed=$(mktemp); prev=$(mktemp)
     # The current file keeps every other app's newest release (Release 14); without it this release stands alone.
     if "$hm" feed show releases --json > "$prev" 2>/dev/null; then set -- --previous "$prev"; else set --; fi
@@ -111,6 +127,7 @@ if [ "$dry" -eq 0 ]; then
       echo "testflight.sh: couldn't publish build $build to the Hive feed (releases); the upload itself is fine." >&2
     fi
     rm -f "$feed" "$prev"
+    rmdir "$lock" 2>/dev/null || true
   fi
   [ -f "$ev_json" ] && echo "Commit release-evidence/$build/evidence.json (and its .gitignore) with the HANDOFF update."
   echo "Apple processes it in about 15 minutes; then it appears in App Store Connect › $name › TestFlight and in the TestFlight app on your iPhone."

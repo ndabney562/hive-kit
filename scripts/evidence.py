@@ -269,17 +269,21 @@ def phone_file(path):
 
 
 def previous_release(repo, build):
-    """(build, commit) of the newest release-evidence build before `build` that recorded a commit, or (None, None)."""
+    """(build, commit) of the newest release-evidence build before `build` that reached TestFlight, or (None, None).
+    Uploaded = `uploaded_at` (testflight.sh stamps it after the upload); a file from before that field counts when it
+    was ready, since only uploaded builds' evidence was committed. A failed attempt never becomes the baseline."""
     best = (None, None)
     for f in (Path(repo) / "release-evidence").glob("*/evidence.json"):
         b = f.parent.name
         if build and b >= build:
             continue
         try:
-            c = json.loads(f.read_text()).get("commit")
+            d = json.loads(f.read_text())
         except (OSError, ValueError):
             continue
-        if c and (best[0] is None or b > best[0]):
+        c = d.get("commit")
+        uploaded = d.get("uploaded_at") or ("uploaded_at" not in d and d.get("ready") and "changes" not in d)
+        if c and uploaded and (best[0] is None or b > best[0]):
             best = (b, c)
     return best
 
@@ -340,6 +344,15 @@ def feed_envelope(data, now=None, previous=None):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["--uploaded"]:  # testflight.sh, after the upload succeeded
+        if len(argv) != 2:
+            print("usage: evidence.py --uploaded <evidence.json>", file=sys.stderr)
+            return 2
+        f = Path(argv[1])
+        d = json.loads(f.read_text())
+        d["uploaded_at"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        f.write_text(json.dumps(d, indent=2) + "\n")
+        return 0
     if argv[:1] == ["--feed"]:  # testflight.sh: evidence.json -> Hive feed file, on stdout
         if len(argv) not in (2, 4) or (len(argv) == 4 and argv[2] != "--previous"):
             print("usage: evidence.py --feed <evidence.json> [--previous <releases.json>]", file=sys.stderr)
