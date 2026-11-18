@@ -111,6 +111,25 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
     public var nextCheckpoint: Checkpoint?
     /// Every sale from `income/ledger.csv`; nil in feeds written before the ledger existed.
     public var income: Income?
+    /// What the shared plans cost a month and each project's API-credit use (Budget/_Shared.md); added 2026-11-17.
+    public var budget: Budget?
+
+    public struct Budget: Decodable, Equatable, Sendable {
+        public struct Item: Decodable, Equatable, Sendable {
+            public var name: String; public var usdMonth: Double
+            /// The amount is marked "?" or "confirm" in the budget file.
+            public var estimate: Bool
+        }
+        public struct Credit: Decodable, Equatable, Sendable {
+            public var project: String; public var allotUsd: Double
+            /// nil when the budget file has no figure yet.
+            public var usedUsd: Double?
+        }
+        public var monthUsd: Double
+        public var items: [Item]
+        public var estimates: Int
+        public var credit: [Credit]
+    }
 
     public struct Income: Decodable, Equatable, Sendable {
         public struct Sale: Decodable, Equatable, Sendable {
