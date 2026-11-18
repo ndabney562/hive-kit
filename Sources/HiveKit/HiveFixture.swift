@@ -109,8 +109,9 @@ public enum HiveFixture {
 
     // MARK: - The files
 
-    /// `{{recent}}` (5 minutes before now, UTC), `{{today}}` and `{{later}}` (an hour from now, HH:MM) in `timeZone`
-    /// are filled in from `now`, so a fixed `now` and time zone give the same bytes every time.
+    /// `{{recent}}` (5 minutes before now, UTC), `{{today}}`, `{{day+N}}` (N days on), `{{month}}` (YYYY-MM) and
+    /// `{{later}}` (an hour from now, HH:MM) in `timeZone` are filled in from `now`, so a fixed `now` and time zone
+    /// give the same bytes every time.
     static func fill(_ text: String, app: String, now: Date, writtenAgo: TimeInterval, timeZone: TimeZone) -> String {
         let iso = ISO8601DateFormatter()
         iso.timeZone = TimeZone(identifier: "UTC")
@@ -122,7 +123,20 @@ public enum HiveFixture {
         clock.locale = day.locale
         clock.timeZone = day.timeZone
         clock.dateFormat = "HH:mm"
-        let body = text
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let month = DateFormatter()
+        month.locale = day.locale
+        month.timeZone = timeZone
+        month.dateFormat = "yyyy-MM"
+        // {{day+N}}: N days from today, so "this month", a payout next week and a renewal soon stay true for any now.
+        var body = text
+        while let r = body.range(of: #"\{\{day([+-]\d+)\}\}"#, options: .regularExpression) {
+            let n = Int(body[r].dropFirst(5).dropLast(2)) ?? 0
+            body.replaceSubrange(r, with: day.string(from: calendar.date(byAdding: .day, value: n, to: now) ?? now))
+        }
+        body = body
+            .replacingOccurrences(of: "{{month}}", with: month.string(from: now))
             .replacingOccurrences(of: "{{recent}}", with: iso.string(from: now.addingTimeInterval(-300)))
             .replacingOccurrences(of: "{{today}}", with: day.string(from: now))
             .replacingOccurrences(of: "{{later}}", with: clock.string(from: now.addingTimeInterval(3600)))
@@ -159,16 +173,16 @@ public enum HiveFixture {
                       {"id": "example/paused-app", "name": "paused-app", "need": null, "reason": null, "paused": true}]}
         """,
         "ai-business-db": """
-        {"day": 12, "days_total": 90, "ends": "2099-03-31", "earned_usd": 41.5,
+        {"day": 12, "days_total": 90, "ends": "{{day+78}}", "earned_usd": 41.5,
          "routes": [{"name": "Sample Shop", "status": "10 sample listings", "earned_usd": 41.5}, {"name": "Sample Route", "status": "waiting", "earned_usd": null}],
-         "next_checkpoint": {"date": "2099-01-15", "title": "sample review"},
+         "next_checkpoint": {"date": "{{day+14}}", "title": "sample review"},
          "income": {"net_usd": 41.5, "month_net_usd": 20.0, "pending_usd": 5.0, "sales": 6, "by_route": {"Sample Shop": 41.5},
-                    "month": "2099-01", "month_by_route": {"Sample Shop": 20.0}, "goal_usd": 100,
+                    "month": "{{month}}", "month_by_route": {"Sample Shop": 20.0}, "goal_usd": 100,
                     "last_sale": {"date": "{{today}}", "route": "Sample Shop", "item": "Sample item", "net_usd": 4.0},
-                    "payouts": {"next": {"date": "2099-01-20", "usd": 5.0}, "waiting_usd": 5.0, "paid_usd": 36.5, "overdue": [], "overdue_usd": 0}},
+                    "payouts": {"next": {"date": "{{day+5}}", "usd": 5.0}, "waiting_usd": 5.0, "paid_usd": 36.5, "overdue": [], "overdue_usd": 0}},
          "budget": {"month_usd": 30.0, "items": [{"name": "Sample plan", "usd_month": 20.0, "estimate": false}, {"name": "Sample tool", "usd_month": 10.0, "estimate": true}],
                     "estimates": 1, "credit": [{"project": "sample-app", "allot_usd": 25, "used_usd": 4.2}],
-                    "renewals": [{"item": "Sample plan", "project": "sample-app", "date": "2099-02-01", "decide_by": "2099-01-25", "cost": "$20/mo", "decision": "keep"}]}}
+                    "renewals": [{"item": "Sample plan", "project": "sample-app", "date": "{{day+20}}", "decide_by": "{{day+13}}", "cost": "$20/mo", "decision": "keep"}]}}
         """,
         "releases": """
         {"app": "SampleApp", "version": "1.0", "build": "20990101.1200", "commit": "0000000", "at": "{{recent}}",
@@ -205,8 +219,8 @@ public enum HiveFixture {
         "health-score": #"{"method": 8, "score": 0, "word": "No data", "capped": false, "top_fixes": [], "repos": []}"#,
         "hiveworld": #"{"schema_version": 1, "pick": [], "projects": []}"#,
         "ai-business-db": """
-        {"day": 1, "days_total": 90, "ends": "2099-03-31", "earned_usd": 0, "routes": [], "next_checkpoint": null,
-         "income": {"net_usd": 0, "month_net_usd": 0, "pending_usd": 0, "sales": 0, "by_route": {}, "month": "2099-01",
+        {"day": 1, "days_total": 90, "ends": "{{day+89}}", "earned_usd": 0, "routes": [], "next_checkpoint": null,
+         "income": {"net_usd": 0, "month_net_usd": 0, "pending_usd": 0, "sales": 0, "by_route": {}, "month": "{{month}}",
                     "month_by_route": {}, "goal_usd": 100, "last_sale": null,
                     "payouts": {"next": null, "waiting_usd": 0, "paid_usd": 0, "overdue": [], "overdue_usd": 0}},
          "budget": {"month_usd": 0, "items": [], "estimates": 0, "credit": [], "renewals": []}}
