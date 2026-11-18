@@ -99,6 +99,18 @@ struct HiveFeedTests {
         #expect(rel?.summary.app == "hive-score")
         #expect(rel?.summary.testsPassed == 119)
         #expect(rel?.summary.ready == true)
+        // A file from before 1.21.0 gives its one release.
+        #expect(rel?.summary.releases.map(\.build) == ["20261115.1143"])
+        #expect(rel?.summary.releases.first?.checks == nil)
+
+        // 1.21.0 (Release 14): the newest release of each app, with what to check on the phone.
+        let example = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../docs/hive-feed/releases.json"))
+        let both = try #require(try HiveFeed.decode(example, as: ReleasesSummary.self))
+        #expect(both.summary.releases.map(\.app) == ["ExampleApp", "OtherApp"])
+        #expect(both.summary.releases.first?.checks == ["New sample card"])
+        #expect(both.summary.releases.first?.baseline == "20991231.0900")
+        #expect(both.summary.releases.last?.override == "Example override: simulator down")
 
         let ideas = try HiveFeed.decode(Data(#"{"schema":1,"app":"ideas","written_at":"2026-11-15T08:00:00Z","stale_after_minutes":11520,"summary":{"ideas":[{"asked_on":"2026-11-15","n":1,"kind":"feature","title":"Quick add","why_now":"Helps focus","size":"S","ais":["Claude"]}]}}"#.utf8), as: IdeasSummary.self)
         #expect(ideas?.summary.ideas.first?.askedOn == "2026-11-15")

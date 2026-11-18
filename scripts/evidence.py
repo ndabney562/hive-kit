@@ -2,7 +2,8 @@
 """Release evidence pack for a Hive app: proof that the build going to TestFlight was tested.
 
 Usage: python3 -I evidence.py <app repo> [--build N] [--app NAME]
-       python3 -I evidence.py --feed <evidence.json>   (prints the Hive feed file `releases`)
+       python3 -I evidence.py --feed <evidence.json> [--previous <releases feed.json>]   (prints the Hive feed file
+       `releases`: this release, plus the newest release of every other app from --previous)
 testflight.sh runs it before archiving and uploads only when it exits 0. No network or API calls.
 
 1. Clean tree: refuses when the repo has uncommitted changes (release-evidence/ itself excepted).
@@ -13,9 +14,12 @@ testflight.sh runs it before archiving and uploads only when it exits 0. No netw
 3. Screenshots: the iPhone image attachments of the newest .xcresult this run made (xcrun xcresulttool), named like
    Bay Ridge's harness shots (path relative to the run folder, compared by bytes/sha256).
 4. Build: MARKETING_VERSION and CURRENT_PROJECT_VERSION from the Xcode project (--build wins).
-5. Output: <repo>/release-evidence/<build>/evidence.json (committed) plus the screenshots and index.html, which the
+5. Changes (Hive build order #28, Release 14): `baseline` is the newest earlier build in release-evidence/, and
+   `changes` lists the commits since its commit (PR titles, first parent only), each marked `phone` when it touches
+   app code or resources (not tests, docs or release evidence): those are what to check on the phone.
+6. Output: <repo>/release-evidence/<build>/evidence.json (committed) plus the screenshots and index.html, which the
    folder's own .gitignore keeps out of git.
-6. Gate: anything missing -> exit 1 and the last line is `Missing: a; b`. HIVE_EVIDENCE_OVERRIDE="<reason>" lets it
+7. Gate: anything missing -> exit 1 and the last line is `Missing: a; b`. HIVE_EVIDENCE_OVERRIDE="<reason>" lets it
    through: the reason goes into evidence.json and a line into HANDOFF.md. Otherwise the last line is
    `Ready: N tests pass, M screens` (or `Override: <reason>`), which testflight.sh puts on Noah's reminder.
 Exit: 0 ready or overridden · 1 missing proof · 2 usage. Python 3.9 compatible (system python3).
@@ -247,31 +251,119 @@ def add_handoff_line(repo, build, reason):
     path.write_text(text)
 
 
-def feed_envelope(data, now=None):
-    """Hive feed file `releases` (schema 1) for one release; docs/hive-feed.md has the fields."""
+# Files that change what the phone shows. Tests, docs, scripts and release evidence don't.
+PHONE_EXT = (".swift", ".plist", ".strings", ".xcstrings", ".entitlements", ".storyboard", ".json", ".png", ".xcconfig")
+NOT_PHONE_DIRS = ("release-evidence/", "docs/", "scripts/", ".github/", "reference/", "cases/", "spec/")
+PR_RE = re.compile(r"\s*\(#(\d+)\)$")
+MAX_CHANGES = 15
+MAX_APPS = 8
+
+
+def phone_file(path):
+    if path.startswith(NOT_PHONE_DIRS) or "/" not in path and not path.endswith(PHONE_EXT):
+        return False
+    parts = path.split("/")
+    if any(p.endswith(("Tests", "UITests")) or p == "Tests" for p in parts[:-1]) or parts[-1] == "Package.swift":
+        return False
+    return path.endswith(PHONE_EXT) or ".xcassets/" in path
+
+
+def previous_release(repo, build):
+    """(build, commit) of the newest release-evidence build before `build` that reached TestFlight, or (None, None).
+    Uploaded = `uploaded_at` (testflight.sh stamps it after the upload); a file from before that field counts when it
+    was ready, since only uploaded builds' evidence was committed. A failed attempt never becomes the baseline."""
+    best = (None, None)
+    for f in (Path(repo) / "release-evidence").glob("*/evidence.json"):
+        b = f.parent.name
+        if build and b >= build:
+            continue
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        c = d.get("commit")
+        uploaded = d.get("uploaded_at") or ("uploaded_at" not in d and d.get("ready") and "changes" not in d)
+        if c and uploaded and (best[0] is None or b > best[0]):
+            best = (b, c)
+    return best
+
+
+def changes_since(repo, base, head):
+    """Commits in base..head, newest first, as {title, pr, phone}; [] when base is unknown or not an ancestor."""
+    if not base or subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", base, head],
+                                  capture_output=True).returncode:
+        return []
+    out = []
+    for row in git(repo, "log", "--first-parent", "--format=%H%x1f%s", f"{base}..{head}").splitlines():
+        sha, _, subject = row.partition("\x1f")
+        files = [f for f in git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent",
+                                sha).splitlines() if f]
+        if files and all(f.startswith("release-evidence/") for f in files):
+            continue  # an evidence-only commit changes nothing on the phone or in the code
+        m = PR_RE.search(subject)
+        out.append({"title": PR_RE.sub("", subject).strip(), "pr": int(m.group(1)) if m else None,
+                    "phone": any(phone_file(f) for f in files)})
+    return out[:MAX_CHANGES]
+
+
+def release_summary(data):
+    changes = data.get("changes") or []
+    return {
+        "app": data.get("app"), "version": data.get("version"), "build": data.get("build"),
+        "commit": data.get("commit"), "ready": bool(data.get("ready")), "override": data.get("override"),
+        "tests_passed": (data.get("tests") or {}).get("passed"),
+        "screens": len(data.get("screenshots") or []), "under_load": bool(data.get("under_load")),
+        "at": data.get("created_at"), "baseline": data.get("baseline"),
+        "changes": [c["title"] for c in changes],
+        "checks": [c["title"] for c in changes if c.get("phone")],
+    }
+
+
+def feed_envelope(data, now=None, previous=None):
+    """Hive feed file `releases` (schema 1): this release at the top level (as before), and `apps`, the newest release
+    of each app, this one first, merged from the `previous` feed file; docs/hive-feed.md has the fields."""
     now = now or dt.datetime.now(dt.timezone.utc)
+    this = release_summary(data)
+    apps = [this]
+    old = (previous or {}).get("summary") or {}
+    seen = {this["app"]}
+    for r in old.get("apps") or ([dict(old, apps=None)] if old.get("app") else []):
+        r = {k: v for k, v in r.items() if k != "apps"}
+        if r.get("app") and r["app"] not in seen:
+            seen.add(r["app"])
+            apps.append(r)
+    apps = [apps[0]] + sorted(apps[1:], key=lambda r: r.get("at") or "", reverse=True)
     return {
         "schema": 1,
         "app": "releases",
         "written_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "stale_after_minutes": 60 * 24 * 30,
-        "summary": {
-            "app": data.get("app"), "version": data.get("version"), "build": data.get("build"),
-            "commit": data.get("commit"), "ready": bool(data.get("ready")), "override": data.get("override"),
-            "tests_passed": (data.get("tests") or {}).get("passed"),
-            "screens": len(data.get("screenshots") or []), "under_load": bool(data.get("under_load")),
-            "at": data.get("created_at"),
-        },
+        "summary": dict(this, apps=apps[:MAX_APPS]),
     }
 
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    if argv[:1] == ["--feed"]:  # testflight.sh: evidence.json -> Hive feed file, on stdout
+    if argv[:1] == ["--uploaded"]:  # testflight.sh, after the upload succeeded
         if len(argv) != 2:
-            print("usage: evidence.py --feed <evidence.json>", file=sys.stderr)
+            print("usage: evidence.py --uploaded <evidence.json>", file=sys.stderr)
             return 2
-        print(json.dumps(feed_envelope(json.loads(Path(argv[1]).read_text())), indent=2))
+        f = Path(argv[1])
+        d = json.loads(f.read_text())
+        d["uploaded_at"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        f.write_text(json.dumps(d, indent=2) + "\n")
+        return 0
+    if argv[:1] == ["--feed"]:  # testflight.sh: evidence.json -> Hive feed file, on stdout
+        if len(argv) not in (2, 4) or (len(argv) == 4 and argv[2] != "--previous"):
+            print("usage: evidence.py --feed <evidence.json> [--previous <releases.json>]", file=sys.stderr)
+            return 2
+        previous = None
+        if len(argv) == 4:
+            try:  # no or unreadable previous feed: this release alone
+                previous = json.loads(Path(argv[3]).read_text())
+            except (OSError, ValueError):
+                previous = None
+        print(json.dumps(feed_envelope(json.loads(Path(argv[1]).read_text()), previous=previous), indent=2))
         return 0
     ap = argparse.ArgumentParser(description="Release evidence pack for a Hive app (see the file header).")
     ap.add_argument("repo")
@@ -299,6 +391,8 @@ def main(argv=None):
     if not build:
         missing.append("no build number (CURRENT_PROJECT_VERSION in the Xcode project, or --build)")
     commit = git(repo, "rev-parse", "HEAD").strip()
+    baseline, base_commit = previous_release(repo, build)
+    changes = changes_since(repo, base_commit, commit)
 
     cmds = test_commands(project_test_line(repo))
     started = time.time()
@@ -339,7 +433,8 @@ def main(argv=None):
         "version": version,
         "build": build,
         "run": build,  # Bay Ridge harness naming: runs/<run> compared against runs/<baseline>
-        "baseline": None,
+        "baseline": baseline,
+        "changes": changes,
         "commit": commit,
         "test_command": " && ".join(cmds) if cmds else None,
         "tests": {"passed": counts["passed"], "failed": counts["failed"], "skipped": counts["skipped"],

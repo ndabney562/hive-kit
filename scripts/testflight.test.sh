@@ -71,8 +71,24 @@ echo "$out" | grep -q "was not uploaded" || fail "not-uploaded message: $out"
 echo "$out" | grep -q "KEY=" && fail "archive must not run without evidence"
 # After the upload the release goes to the Hive feed (`releases`) through hivemind (a fake records the call).
 mkdir -p "$t/app/release-evidence/8" && printf '{"app": "Demo", "build": "8", "ready": true, "tests": {"passed": 3}, "screenshots": []}' > "$t/app/release-evidence/8/evidence.json"
-printf '#!/bin/sh\necho "$1 $2 $3" > "%s/hm.log"; python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d[\x27app\x27]==\x27releases\x27 and d[\x27summary\x27][\x27build\x27]==\x278\x27" "$4" || exit 1\n' "$t" > "$t/hm" && chmod +x "$t/hm"
-out=$(HIVE_NO_FEED= HIVE_HIVEMIND="$t/hm" HIVE_BUILD=8 HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo)
+cat > "$t/hm" <<X
+#!/bin/sh
+if [ "\$2" = show ]; then  # the current file: another app's newest release
+  echo '{"schema": 1, "app": "releases", "summary": {"app": "Other", "build": "5", "at": "2026-11-01T00:00:00Z"}}'; exit 0
+fi
+echo "\$1 \$2 \$3" > "$t/hm.log"
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); s=d['summary']; assert d['app']=='releases' and s['build']=='8' and [a['app'] for a in s['apps']]==['Demo','Other']" "\$4" || exit 1
+X
+chmod +x "$t/hm"
+out=$(HIVE_FEED_LOCK="$t/feed.lock" HIVE_NO_FEED= HIVE_HIVEMIND="$t/hm" HIVE_BUILD=8 HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo)
 [ "$(cat "$t/hm.log")" = "feed publish releases" ] || fail "feed publish: $(cat "$t/hm.log" 2>/dev/null)"
 echo "$out" | grep -q "Published build 8 to the Hive feed" || fail "feed message: $out"
+grep -q '"uploaded_at"' "$t/app/release-evidence/8/evidence.json" || fail "an uploaded build is marked (the next build's baseline)"
+[ -d "$t/feed.lock" ] && fail "the feed lock is released after publishing"
+# Another upload holds the releases feed: this one doesn't publish and leaves that lock alone.
+mkdir "$t/feed.lock" && rm -f "$t/hm.log"
+out=$(HIVE_FEED_LOCK="$t/feed.lock" HIVE_FEED_LOCK_TRIES=1 HIVE_NO_FEED= HIVE_HIVEMIND="$t/hm" HIVE_BUILD=8 HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo 2>&1)
+echo "$out" | grep -q "stayed locked" || fail "locked feed message: $out"
+[ -f "$t/hm.log" ] && fail "nothing published while another upload holds the feed"
+[ -d "$t/feed.lock" ] || fail "the other upload's lock is left alone"
 echo "testflight.test.sh: all checks passed"
