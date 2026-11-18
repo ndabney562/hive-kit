@@ -4,18 +4,19 @@ import Testing
 
 struct HiveFixtureTests {
     let now = ISO8601DateFormatter().date(from: "2099-01-15T12:00:00Z")!
+    let utc = TimeZone(identifier: "UTC")!
 
     struct NoFile: Error {}
 
     func feed<S: Decodable & Sendable>(_ app: String, _ scenario: HiveFixture.Scenario, as type: S.Type) throws -> HiveFeedEnvelope<S>? {
-        guard let data = try HiveFixture.file(app, scenario, now: now) else { throw NoFile() }
+        guard let data = try HiveFixture.file(app, scenario, now: now, timeZone: utc) else { throw NoFile() }
         return try HiveFeed.decode(data, as: type)
     }
 
     @Test func sameNowSameBytes() throws {
         for app in HiveFixture.apps {
             for scenario in HiveFixture.Scenario.allCases where scenario != .offline {
-                #expect(try HiveFixture.file(app, scenario, now: now) == HiveFixture.file(app, scenario, now: now))
+                #expect(try HiveFixture.file(app, scenario, now: now, timeZone: utc) == HiveFixture.file(app, scenario, now: now, timeZone: utc))
             }
         }
     }
@@ -28,7 +29,7 @@ struct HiveFixtureTests {
     }
 
     @Test func everyAppInEveryScenario() async {
-        let rows = await HiveFixture.preview(now: now)
+        let rows = await HiveFixture.preview(now: now, timeZone: utc)
         #expect(rows.count == HiveFixture.apps.count * HiveFixture.Scenario.allCases.count)
         let want: [HiveFixture.Scenario: HiveFixture.Outcome] = [
             .normal: .shown, .empty: .shown, .missing: .noFile, .stale: .shownAsOld, .offline: .offline, .malformed: .unreadable,
@@ -61,7 +62,7 @@ struct HiveFixtureTests {
     @Test func noPersonalData() throws {
         for app in HiveFixture.apps {
             for scenario in [HiveFixture.Scenario.normal, .empty] {
-                guard let data = try HiveFixture.file(app, scenario, now: now) else { throw NoFile() }
+                guard let data = try HiveFixture.file(app, scenario, now: now, timeZone: utc) else { throw NoFile() }
                 let text = String(decoding: data, as: UTF8.self)
                 for word in ["ndabney", "Noah", "Dink", "Etsy", "TikTok", "@", "ghu_", "ghp_"] {
                     #expect(!text.contains(word), "\(app) \(scenario.rawValue) contains \(word)")
@@ -70,9 +71,20 @@ struct HiveFixtureTests {
         }
     }
 
+    /// HiveScore compares hive-tempo's `date` with its own local day: late evening in New York is already
+    /// tomorrow in UTC, so the fixture's day must be the reader's (the sample plan vanished at 21:00 New York time).
+    @Test func todayIsTheReadersDay() throws {
+        let evening = ISO8601DateFormatter().date(from: "2099-01-16T02:30:00Z")!  // 21:30 on the 15th in New York
+        let ny = TimeZone(identifier: "America/New_York")!
+        let data = try #require(try HiveFixture.file("hive-tempo", .normal, now: evening, timeZone: ny))
+        let tempo = try HiveFeed.decode(data, as: TempoSummary.self)
+        #expect(tempo?.summary.date == "2099-01-15")
+        #expect(tempo?.summary.current?.until == "22:30")
+    }
+
     @Test func offlineThrowsOffline() async {
         await #expect(throws: FetchError.offline) {
-            _ = try await HiveFixture.reader(.offline, now: { now }).read("hivemind", as: HiveMindSummary.self)
+            _ = try await HiveFixture.reader(.offline, now: { now }, timeZone: utc).read("hivemind", as: HiveMindSummary.self)
         }
     }
 }
