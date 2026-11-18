@@ -16,7 +16,7 @@ struct FeedContractTests {
     @Test func everyDocsExamplePasses() throws {
         for contract in FeedContract.known {
             let url = Self.docs.appendingPathComponent("\(contract.app).json")
-            guard let data = try? Data(contentsOf: url) else { continue }  // releases has no example
+            guard let data = try? Data(contentsOf: url) else { continue }  // an app may have no example yet
             #expect(contract.check(data) == [], "\(contract.app)")
         }
     }

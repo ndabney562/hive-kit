@@ -102,13 +102,15 @@ if [ "$dry" -eq 0 ]; then
   [ -z "$hm" ] && [ -x "$HOME/AI.Stuff/HiveMind/hivemind" ] && hm=$HOME/AI.Stuff/HiveMind/hivemind
   ev_json="$here/release-evidence/$build/evidence.json"
   if [ -z "${HIVE_NO_FEED:-}" ] && [ -n "$hm" ] && [ -f "$ev_json" ]; then
-    feed=$(mktemp)
-    if python3 -I "$evidence_py" --feed "$ev_json" > "$feed" && "$hm" feed publish releases "$feed" >/dev/null 2>&1; then
+    feed=$(mktemp); prev=$(mktemp)
+    # The current file keeps every other app's newest release (Release 14); without it this release stands alone.
+    if "$hm" feed show releases --json > "$prev" 2>/dev/null; then set -- --previous "$prev"; else set --; fi
+    if python3 -I "$evidence_py" --feed "$ev_json" "$@" > "$feed" && "$hm" feed publish releases "$feed" >/dev/null 2>&1; then
       echo "Published build $build to the Hive feed (releases)."
     else
       echo "testflight.sh: couldn't publish build $build to the Hive feed (releases); the upload itself is fine." >&2
     fi
-    rm -f "$feed"
+    rm -f "$feed" "$prev"
   fi
   [ -f "$ev_json" ] && echo "Commit release-evidence/$build/evidence.json (and its .gitignore) with the HANDOFF update."
   echo "Apple processes it in about 15 minutes; then it appears in App Store Connect › $name › TestFlight and in the TestFlight app on your iPhone."

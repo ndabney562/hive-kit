@@ -194,8 +194,30 @@ public struct IncomeGoal: Equatable, Sendable {
     }
 }
 
-/// `releases.json`: the newest TestFlight upload of any Hive app, from `release-evidence/<build>/evidence.json`.
+/// `releases.json`: the newest TestFlight upload of any Hive app at the top level, from
+/// `release-evidence/<build>/evidence.json`, and (1.21.0, Hive build order #28, Release 14) `apps`, the newest
+/// upload of each app with what changed since its previous build and which of it to check on the phone.
 public struct ReleasesSummary: Decodable, Equatable, Sendable {
+    /// One app's upload.
+    public struct Release: Decodable, Equatable, Sendable {
+        public var app: String
+        public var version: String?
+        public var build: String
+        public var commit: String?
+        public var at: Date
+        public var ready: Bool?
+        public var override: String?
+        public var testsPassed: Int?
+        public var screens: Int?
+        public var underLoad: Bool?
+        /// The previous build these changes are counted from; nil for the first evidence build.
+        public var baseline: String?
+        /// PR titles since `baseline`, newest first.
+        public var changes: [String]?
+        /// The changes that touch what the phone shows: what to look at after updating.
+        public var checks: [String]?
+    }
+
     public var app: String
     public var version: String
     public var build: String
@@ -206,6 +228,19 @@ public struct ReleasesSummary: Decodable, Equatable, Sendable {
     public var testsPassed: Int?
     public var screens: Int?
     public var underLoad: Bool?
+    public var baseline: String?
+    public var changes: [String]?
+    public var checks: [String]?
+    /// The newest release of each app, newest first (1.21.0; older files have only the top level).
+    public var apps: [Release]?
+
+    /// Every app's newest release; a file from before 1.21.0 gives its one release.
+    public var releases: [Release] {
+        if let apps, !apps.isEmpty { return apps }
+        return [Release(app: app, version: version, build: build, commit: commit, at: at, ready: ready,
+                        override: override, testsPassed: testsPassed, screens: screens, underLoad: underLoad,
+                        baseline: baseline, changes: changes, checks: checks)]
+    }
 }
 
 /// `ideas.json`: ideas put to Noah in the last 14 days by the weekly idea generator.

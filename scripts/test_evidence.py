@@ -289,6 +289,85 @@ class FeedTest(unittest.TestCase):
             self.assertTrue(doc["summary"]["ready"])
 
 
+class ChangesTest(unittest.TestCase):
+    """Release 14: what changed since the last build, and which of it to check on the phone."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = Path(self.tmp.name)
+        for args in (["init", "-q", "-b", "main"], ["config", "user.name", "t"],
+                     ["config", "user.email", "t@example.invalid"], ["config", "commit.gpgsign", "false"]):
+            subprocess.run(["git", "-C", str(self.repo), *args], check=True)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def commit(self, files, subject):
+        for name in files:
+            f = self.repo / name
+            f.parent.mkdir(parents=True, exist_ok=True)
+            if not f.exists():  # a file the test wrote itself keeps its content
+                f.write_text(subject + name)
+        subprocess.run(["git", "-C", str(self.repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "commit", "-qm", subject], check=True)
+        return ev.git(self.repo, "rev-parse", "HEAD").strip()
+
+    def test_phone_files(self):
+        for path in ("App/ReportView.swift", "AppKit/Sources/AppKit/Glance.swift", "App/Info.plist",
+                     "App/Assets.xcassets/AppIcon.appiconset/icon.png", "Config/App.xcconfig"):
+            self.assertTrue(ev.phone_file(path), path)
+        for path in ("AppKit/Tests/AppKitTests/GlanceTests.swift", "AppUITests/SmokeTests.swift", "HANDOFF.md",
+                     "release-evidence/7/evidence.json", "docs/x.json", "scripts/x.py", "AppKit/Package.swift",
+                     "AppKit/Package.resolved"):
+            self.assertFalse(ev.phone_file(path), path)
+
+    def test_changes_since_the_previous_build(self):
+        first = self.commit(["App/A.swift"], "First (#1)")
+        (self.repo / "release-evidence" / "20990101.1000").mkdir(parents=True)
+        (self.repo / "release-evidence" / "20990101.1000" / "evidence.json").write_text(json.dumps({"commit": first}))
+        self.commit(["release-evidence/20990101.1000/evidence.json"], "Release evidence for 20990101.1000 (#2)")
+        self.commit(["App/Card.swift", "AppTests/CardTests.swift"], "New card (#3)")
+        head = self.commit(["HANDOFF.md", "AppKit/Tests/AppKitTests/T.swift"], "Docs and tests only")
+        build, base = ev.previous_release(self.repo, "20990102.1000")
+        self.assertEqual((build, base), ("20990101.1000", first))
+        self.assertEqual(ev.previous_release(self.repo, "20990101.1000"), (None, None))  # never itself or later
+        changes = ev.changes_since(self.repo, base, head)
+        self.assertEqual(changes, [{"title": "Docs and tests only", "pr": None, "phone": False},
+                                   {"title": "New card", "pr": 3, "phone": True}])
+        self.assertEqual(ev.changes_since(self.repo, None, head), [])
+        self.assertEqual(ev.changes_since(self.repo, "0" * 40, head), [])  # unknown base: nothing claimed
+
+
+class FeedMergeTest(unittest.TestCase):
+    def test_newest_release_of_every_app(self):
+        this = {"app": "Demo", "build": "9", "ready": True, "created_at": "2026-11-18T10:00:00Z",
+                "changes": [{"title": "New card", "pr": 3, "phone": True}, {"title": "Docs", "pr": None, "phone": False}]}
+        prev = {"summary": {"app": "Other", "build": "5", "at": "2026-11-10T00:00:00Z", "apps": [
+            {"app": "Other", "build": "5", "at": "2026-11-10T00:00:00Z"},
+            {"app": "Demo", "build": "8", "at": "2026-11-09T00:00:00Z"},
+            {"app": "Third", "build": "2", "at": "2026-11-12T00:00:00Z"}]}}
+        s = ev.feed_envelope(this, previous=prev)["summary"]
+        self.assertEqual((s["app"], s["build"]), ("Demo", "9"))  # top level stays this release (old readers)
+        self.assertEqual([(a["app"], a["build"]) for a in s["apps"]], [("Demo", "9"), ("Third", "2"), ("Other", "5")])
+        self.assertEqual(s["changes"], ["New card", "Docs"])
+        self.assertEqual(s["checks"], ["New card"])
+        self.assertTrue(all("apps" not in a for a in s["apps"]))
+        # An old single-release file still counts as that app's newest release.
+        old = {"summary": {"app": "Other", "build": "4", "at": "2026-11-01T00:00:00Z"}}
+        self.assertEqual([a["app"] for a in ev.feed_envelope(this, previous=old)["summary"]["apps"]], ["Demo", "Other"])
+
+    def test_feed_cli_with_a_missing_previous_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp, "evidence.json")
+            f.write_text(json.dumps({"app": "Demo", "build": "7", "ready": True}))
+            r = subprocess.run([sys.executable, "-I", str(EVIDENCE), "--feed", str(f), "--previous", str(Path(tmp, "nope"))],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual([a["app"] for a in json.loads(r.stdout)["summary"]["apps"]], ["Demo"])
+            r = subprocess.run([sys.executable, "-I", str(EVIDENCE), "--feed", str(f), "--other"], capture_output=True)
+            self.assertEqual(r.returncode, 2)
+
+
 class CommandsTest(unittest.TestCase):
     def test_test_commands_include_ui_smoke(self):
         line = ("- **Test command:** `python3 -I -m unittest discover -s planner/tests && swift test` (from the root). "

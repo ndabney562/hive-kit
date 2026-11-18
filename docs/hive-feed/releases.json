@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "app": "releases",
+  "written_at": "2099-12-31T12:05:00Z",
+  "stale_after_minutes": 43200,
+  "summary": {
+    "app": "ExampleApp",
+    "version": "1.0",
+    "build": "20991231.1200",
+    "commit": "0000000000000000000000000000000000000000",
+    "ready": true,
+    "override": null,
+    "tests_passed": 42,
+    "screens": 3,
+    "under_load": false,
+    "at": "2099-12-31T12:00:00Z",
+    "baseline": "20991231.0900",
+    "changes": [
+      "New sample card",
+      "Sample docs update"
+    ],
+    "checks": [
+      "New sample card"
+    ],
+    "apps": [
+      {
+        "app": "ExampleApp",
+        "version": "1.0",
+        "build": "20991231.1200",
+        "commit": "0000000000000000000000000000000000000000",
+        "ready": true,
+        "override": null,
+        "tests_passed": 42,
+        "screens": 3,
+        "under_load": false,
+        "at": "2099-12-31T12:00:00Z",
+        "baseline": "20991231.0900",
+        "changes": [
+          "New sample card",
+          "Sample docs update"
+        ],
+        "checks": [
+          "New sample card"
+        ]
+      },
+      {
+        "app": "OtherApp",
+        "version": "2.1",
+        "build": "20991230.0800",
+        "commit": "1111111111111111111111111111111111111111",
+        "ready": false,
+        "override": "Example override: simulator down",
+        "tests_passed": 7,
+        "screens": 0,
+        "under_load": true,
+        "at": "2099-12-30T08:00:00Z",
+        "baseline": null,
+        "changes": [],
+        "checks": []
+      }
+    ]
+  }
+}

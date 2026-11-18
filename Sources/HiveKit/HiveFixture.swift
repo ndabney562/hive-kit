@@ -186,7 +186,14 @@ public enum HiveFixture {
         """,
         "releases": """
         {"app": "SampleApp", "version": "1.0", "build": "20990101.1200", "commit": "0000000", "at": "{{recent}}",
-         "ready": true, "override": null, "tests_passed": 42, "screens": 3, "under_load": false}
+         "ready": true, "override": null, "tests_passed": 42, "screens": 3, "under_load": false,
+         "baseline": "20990101.0900", "changes": ["Sample change: new card", "Sample change: docs"], "checks": ["Sample change: new card"],
+         "apps": [{"app": "SampleApp", "version": "1.0", "build": "20990101.1200", "commit": "0000000", "at": "{{recent}}",
+                   "ready": true, "tests_passed": 42, "screens": 3, "under_load": false, "baseline": "20990101.0900",
+                   "changes": ["Sample change: new card", "Sample change: docs"], "checks": ["Sample change: new card"]},
+                  {"app": "SampleTwo", "version": "2.1", "build": "20990101.0800", "commit": "1111111", "at": "{{recent}}",
+                   "ready": false, "override": "Sample override: simulator down", "tests_passed": 7, "screens": 0,
+                   "under_load": true, "baseline": null, "changes": [], "checks": []}]}
         """,
         "ideas": """
         {"ideas": [{"asked_on": "{{today}}", "n": 1, "kind": "feature", "title": "Sample idea", "why_now": "Sample reason",
