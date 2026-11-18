@@ -46,7 +46,11 @@ struct IncomeGoalTests {
                              "items": [["name": "Claude Max", "usd_month": 125.0, "estimate": false],
                                        ["name": "Apple Developer Program", "usd_month": 8.25, "estimate": true]],
                              "credit": [["project": "HiveMind", "allot_usd": 25.0, "used_usd": 9.17],
-                                        ["project": "AI business", "allot_usd": 50.0, "used_usd": NSNull()]]]
+                                        ["project": "AI business", "allot_usd": 50.0, "used_usd": NSNull()]],
+                             "renewals": [["item": "Claude Max (Apple billing)", "project": "_Shared", "date": "2026-11-29",
+                                           "decide_by": "2026-11-25", "cost": "$125/mo", "decision": "Move to web billing"],
+                                          ["item": "X", "project": "Y", "date": "2026-12-11", "decide_by": NSNull(),
+                                           "cost": "$1", "decision": "Open"]]]
         let doc: [String: Any] = ["schema": 1, "app": "ai-business-db", "written_at": "2026-11-17T17:00:00Z",
                                   "stale_after_minutes": 360, "summary": summary]
         let b = try #require(try HiveFeed.decode(JSONSerialization.data(withJSONObject: doc), as: BusinessSummary.self)?.summary.budget)
@@ -54,6 +58,8 @@ struct IncomeGoalTests {
         #expect(b.items.last?.estimate == true)
         #expect(b.credit.first?.usedUsd == 9.17)
         #expect(b.credit.last?.usedUsd == nil)
+        #expect(b.renewals?.first?.decideBy == "2026-11-25")
+        #expect(b.renewals?.last?.decideBy == nil)
         #expect(try business(november).budget == nil, "older feeds have no budget")
     }
 

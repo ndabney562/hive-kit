@@ -125,6 +125,14 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
             /// nil when the budget file has no figure yet.
             public var usedUsd: Double?
         }
+        /// Hive build order #4 (Renew 82): the Renewals table's dated rows from today on, soonest first; added 2026-11-17.
+        public struct Renewal: Decodable, Equatable, Sendable {
+            public var item: String; public var project: String; public var date: String
+            /// The last day to act; nil when the table gives none.
+            public var decideBy: String?
+            public var cost: String; public var decision: String
+        }
+        public var renewals: [Renewal]?
         public var monthUsd: Double
         public var items: [Item]
         public var estimates: Int
