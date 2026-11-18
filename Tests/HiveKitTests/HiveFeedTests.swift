@@ -24,6 +24,14 @@ struct HiveFeedTests {
         json(["encoding": "base64", "content": data.base64EncodedString(options: .lineLength76Characters)], status: status)
     }
 
+    @Test func decodesJobs() throws {
+        let jobs = try HiveFeed.decode(fixture("jobs"), as: JobsSummary.self)
+        #expect(jobs?.summary.counts.failed == 2)
+        #expect(jobs?.summary.issues.first?.jobs == ["pinterest-pins", "Pinterest"])
+        #expect(jobs?.summary.jobs.first?.cause == "sign-in or permission refused")
+        #expect(jobs?.summary.jobs.first(where: { $0.name == "daily-check" })?.output == "2026-11-17 all green")
+    }
+
     @Test func decodesEachFixture() throws {
         let mind = try HiveFeed.decode(fixture("hivemind"), as: HiveMindSummary.self)
         #expect(mind?.summary.quota.first?.leftPct == 90)

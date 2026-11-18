@@ -56,6 +56,10 @@ struct HiveFixtureTests {
         let stale = try feed("hive-tempo", .stale, as: TempoSummary.self)
         #expect(stale?.isStale(now: now) == true)
         #expect(try feed("hivemind", .empty, as: HiveMindSummary.self).map { HiveStatus.line($0.summary) } == "No alerts")
+        let jobs = try feed("jobs", .normal, as: JobsSummary.self)
+        #expect(jobs?.summary.issues.first?.jobs == ["sample-pins", "sample-routine"])
+        #expect(jobs?.summary.jobs.first?.lastOk?.output == "Sample: 12 files copied")
+        #expect(jobs?.summary.counts.failed == 3)
     }
 
     /// Fictional only: the repo is public and the fixtures are shown in screenshots.

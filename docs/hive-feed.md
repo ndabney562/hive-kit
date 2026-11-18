@@ -7,7 +7,7 @@ fixtures).
 ## Where
 
 Branch `hive` of the private repo `ndabney562/hivemind`, one file per app: `<app>.json`, where `<app>` is the app's
-repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`; `iphone` is the Mac's weekly iPhone scan, `ideas` the weekly idea generator and `releases` the newest TestFlight upload's release evidence, none a repo; `etsy` is the Etsy repo's weekly sales loop). Only the Mac writes, always through HiveMind:
+repo name (`hivemind`, `hive-tempo`, `health-score`, `ai-business-db`, `hiveworld`; `iphone` is the Mac's weekly iPhone scan, `ideas` the weekly idea generator and `releases` the newest TestFlight upload's release evidence, `jobs` the Mac's automations from hive-tempo's planner, none a repo; `etsy` is the Etsy repo's weekly sales loop). Only the Mac writes, always through HiveMind:
 
     hivemind feed publish <app> <file>     # validates, then commits on top of the branch and pushes
     hivemind feed show [app] [--json]      # one line per app, stale ones marked; --json prints the file
@@ -58,6 +58,9 @@ ones); removing a field or changing its meaning bumps `schema`.
 | ideas | `ideas[]` | every idea put to Noah in the last 14 days: `{asked_on, n, kind, title, why_now, reuses, size, ais}`; `asked_on` + `n` name its Business Asks card (`kind`: feature, link or new; `size`: S, M or L). Written on Tuesdays by ai-scheduled `improvement_sweep.py` (stale after 8 days); HiveTempo looks Design / Park / No answers up here. No Swift reader yet |
 | etsy | `week`, `listing_views_7d`, `orders_7d`, `revenue_7d_usd`, `gumroad_sales_7d` | the Etsy shop's last 7 days (Etsy Shop Stats) and Gumroad sales, from the Etsy repo's `scripts/sales_loop.py --feed`; written Mondays 7:00 by the `etsy-sales-loop` task (stale after 8 days). Shop totals only: never buyer names, messages or addresses |
 | etsy | `top[]`, `changes` | `{name, views, sales}` for the 3 busiest products (Etsy + Gumroad); `{edits, new_versions, asks}`: what the loop changed or asked this week. No Swift reader yet |
+| jobs | `counts` | `{failed, running, waiting, finished}`: every automation on the Mac (Hive build order #10, Watch 11). Written by hive-tempo's planner (`tempoplan/jobs.py`, reusing the FAILED TODAY check in `failures.py`), on change and at most hourly; stale after 90 minutes. Read by HiveScore (`JobsSummary`) |
+| jobs | `jobs[]` | `{kind, name, status, at?, output?, detail?, cause?, last_ok?, handled?}`: `kind` launchd, task or routine; `status` running, waiting, failed or finished; `output` the last line of a launchd job's own log (120 chars, secret-looking lines dropped); `detail` a failed launchd job's exit code and error line; `cause` a failed task's or routine's cause in words (its report never appears); `last_ok` `{at, output}` a failed job's latest successful run; `handled` marked fixed today. Failed first, at most 80 |
+| jobs | `issues[]`, `problems[]` | failed jobs grouped by cause: `{cause, jobs[], example?}` (sign-in or permission refused, no connection, timed out, a usage limit, a missing file, else the same error text without numbers); sources the Mac could not read |
 
 ## Test scenarios (HiveFixture, 1.18.0)
 
