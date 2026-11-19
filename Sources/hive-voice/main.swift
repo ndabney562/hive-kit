@@ -14,7 +14,8 @@ guard args.count >= 2 else { fail(usage) }
 let command = args.removeFirst()
 let path = args.removeFirst()
 @MainActor func option(_ name: String) -> String? {
-    guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
+    guard let i = args.firstIndex(of: name) else { return nil }
+    guard i + 1 < args.count else { fail("hive-voice: \(name) needs a value") }
     let v = args[i + 1]
     args.removeSubrange(i...(i + 1))
     return v

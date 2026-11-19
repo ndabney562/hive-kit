@@ -67,7 +67,7 @@ public struct VoiceProfile: Codable, Equatable, Sendable {
     public func check(_ text: String) -> [String] {
         let lines = text.components(separatedBy: "\n")
         var out: [String] = []
-        for word in never {
+        for word in never where !word.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let pattern = "(?<![\\p{L}\\p{N}])" + NSRegularExpression.escapedPattern(for: word) + "(?![\\p{L}\\p{N}])"
             guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
             for (i, line) in lines.enumerated()

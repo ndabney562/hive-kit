@@ -44,6 +44,9 @@ struct HiveVoiceTests {
     @Test func checkFindsNeverWordsAsWholeWordsWithTheirLine() {
         let hits = profile().check("Fresh rolls.\nLet's Circle Back tomorrow.\nsynergyless is fine")
         #expect(hits == ["never: circle back (line 2)"])
+        var blank = profile()
+        blank.never = ["", "  "]
+        #expect(blank.check("Fresh rolls.\n\nNo hits here.").isEmpty, "an empty never-word matches nothing")
     }
 
     @Test func aRepeatedCorrectionIsKeptOnceWithTheNewestDate() {
