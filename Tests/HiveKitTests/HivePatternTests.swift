@@ -253,6 +253,32 @@ struct HivePatternTests {
         #expect(byID["symbol:WrongPkgStore"]?.targetPackage == .hiveKit)
     }
 
+    @Test func preservesMultilineStringStateAcrossLinesAndIgnoresDeclarationsInsideStrings() throws {
+        let root = try makeTempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let snippet = """
+        let marker = \"\"\"
+        /*
+        struct FakeInsideString { let x = 1 }
+        \"\"\"
+        let rawMarker = #\"\"\"
+        \"\"\"
+        /*
+        struct FakeInsideRaw { let y = 2 }
+        \"\"\"#
+        let singleRaw = #"/* \\"#
+        struct RealAfterMultiline { let value = 1 }
+        """
+
+        let alpha = try makeRepo("AppAlpha", in: root, files: ["Sample.swift": snippet])
+        let beta = try makeRepo("AppBeta", in: root, files: ["Sample.swift": snippet])
+
+        let proposals = HivePattern.scan(repos: [alpha, beta], rules: [])
+
+        #expect(proposals.map(\.id) == ["symbol:RealAfterMultiline"])
+    }
+
     @Test func noPersonalDataInPatternCodeAndFixtures() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

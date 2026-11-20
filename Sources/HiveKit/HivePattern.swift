@@ -535,11 +535,12 @@ public enum HivePattern {
 
     private static func lexSwiftLines(in text: String) -> [LexedLine] {
         var blockDepth = 0
+        var multilineHashes: Int? = nil
         var out: [LexedLine] = []
 
         for (idx, raw) in text.components(separatedBy: .newlines).enumerated() {
             let chars = Array(raw)
-            var inString = false
+            var singleLineHashes: Int? = nil
             var escaped = false
             var codeChars: [Character] = []
             var braceDelta = 0
@@ -549,6 +550,29 @@ public enum HivePattern {
             while i < chars.count {
                 let c = chars[i]
                 let next: Character? = (i + 1 < chars.count) ? chars[i + 1] : nil
+
+                if let closeHashes = multilineHashes {
+                    if closeHashes == 0 {
+                        if escaped {
+                            escaped = false
+                            i += 1
+                            continue
+                        }
+                        if c == "\\" {
+                            escaped = true
+                            i += 1
+                            continue
+                        }
+                    }
+                    if matchesTripleQuoteClose(in: chars, at: i, hashes: closeHashes) {
+                        multilineHashes = nil
+                        escaped = false
+                        i += 3 + closeHashes
+                        continue
+                    }
+                    i += 1
+                    continue
+                }
 
                 if blockDepth > 0 {
                     if c == "/" && next == "*" {
@@ -565,15 +589,28 @@ public enum HivePattern {
                     continue
                 }
 
-                if inString {
-                    codeChars.append(c)
-                    if escaped {
-                        escaped = false
-                    } else if c == "\\" {
-                        escaped = true
-                    } else if c == "\"" {
-                        inString = false
+                if let strHashes = singleLineHashes {
+                    if strHashes == 0 {
+                        codeChars.append(c)
+                        if escaped {
+                            escaped = false
+                        } else if c == "\\" {
+                            escaped = true
+                        } else if c == "\"" {
+                            singleLineHashes = nil
+                        }
+                        i += 1
+                        continue
                     }
+                    if matchesSingleQuoteClose(in: chars, at: i, hashes: strHashes) {
+                        for k in 0...strHashes {
+                            codeChars.append(chars[i + k])
+                        }
+                        singleLineHashes = nil
+                        i += 1 + strHashes
+                        continue
+                    }
+                    codeChars.append(c)
                     i += 1
                     continue
                 }
@@ -586,8 +623,36 @@ public enum HivePattern {
                     i += 2
                     continue
                 }
+                if c == "#" {
+                    var hashes = 0
+                    while i + hashes < chars.count && chars[i + hashes] == "#" {
+                        hashes += 1
+                    }
+                    if matchesTripleQuoteOpen(in: chars, at: i + hashes) {
+                        multilineHashes = hashes
+                        escaped = false
+                        i += hashes + 3
+                        continue
+                    }
+                    if i + hashes < chars.count && chars[i + hashes] == "\"" {
+                        for k in 0...hashes {
+                            codeChars.append(chars[i + k])
+                        }
+                        singleLineHashes = hashes
+                        escaped = false
+                        i += hashes + 1
+                        continue
+                    }
+                }
                 if c == "\"" {
-                    inString = true
+                    if matchesTripleQuoteOpen(in: chars, at: i) {
+                        multilineHashes = 0
+                        escaped = false
+                        i += 3
+                        continue
+                    }
+                    singleLineHashes = 0
+                    escaped = false
                     codeChars.append(c)
                     i += 1
                     continue
@@ -606,6 +671,36 @@ public enum HivePattern {
             out.append(LexedLine(line: idx + 1, code: trimmed, braceDelta: braceDelta, sawOpenBrace: sawOpen))
         }
         return out
+    }
+
+    private static func matchesTripleQuoteOpen(in chars: [Character], at index: Int) -> Bool {
+        index + 2 < chars.count
+            && chars[index] == "\""
+            && chars[index + 1] == "\""
+            && chars[index + 2] == "\""
+    }
+
+    private static func matchesTripleQuoteClose(in chars: [Character], at index: Int, hashes: Int) -> Bool {
+        guard index + 2 + hashes < chars.count,
+              chars[index] == "\"",
+              chars[index + 1] == "\"",
+              chars[index + 2] == "\"" else {
+            return false
+        }
+        for k in 0..<hashes {
+            if chars[index + 3 + k] != "#" { return false }
+        }
+        return true
+    }
+
+    private static func matchesSingleQuoteClose(in chars: [Character], at index: Int, hashes: Int) -> Bool {
+        guard index + hashes < chars.count, chars[index] == "\"" else {
+            return false
+        }
+        for k in 1...hashes {
+            if chars[index + k] != "#" { return false }
+        }
+        return true
     }
 
     private static func nonCommentLines(in text: String) -> [(line: Int, text: String)] {
