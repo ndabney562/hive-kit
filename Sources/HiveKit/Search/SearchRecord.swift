@@ -163,7 +163,7 @@ public struct SearchTarget: Codable, Equatable, Hashable, Sendable {
         return HiveLink.parse(url)
     }
 
-    static func parseReference(_ raw: String) -> SearchTarget {
+    public static func parseReference(_ raw: String) -> SearchTarget {
         let lower = raw.lowercased()
         if lower.hasPrefix("http://") || lower.hasPrefix("https://") {
             return .web(raw)
@@ -224,6 +224,7 @@ public struct SearchItem: Codable, Equatable, Sendable {
 
 /// #50 Shelf 4: deliverable record with preview path, approval status, caption, and usage history.
 public struct ShelfDeliverable: Codable, Equatable, Sendable {
+    public var id: String?
     public var slug: String
     public var title: String
     public var project: String
@@ -247,8 +248,10 @@ public struct ShelfDeliverable: Codable, Equatable, Sendable {
         usageHistory: [String] = [],
         date: String? = nil,
         directoryPath: String,
-        relatedPaths: [String] = []
+        relatedPaths: [String] = [],
+        id: String? = nil
     ) {
+        self.id = id
         self.slug = slug
         self.title = title
         self.project = project
@@ -299,8 +302,9 @@ public struct ShelfDeliverable: Codable, Equatable, Sendable {
         if let previewPath, !previewPath.isEmpty { meta["preview"] = previewPath }
         if let captionPath, !captionPath.isEmpty { meta["captionPath"] = captionPath }
 
+        let itemID = id ?? "shelf:\(project):\(slug)\(date.map { ":\($0)" } ?? "")"
         return SearchItem(
-            id: "shelf:\(project):\(slug)",
+            id: itemID,
             kind: .shelf,
             scope: scope,
             title: title,

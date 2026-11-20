@@ -294,6 +294,52 @@ struct HiveSearchTests {
         #expect(sourceHits[0].item.relatedTargets == [.file(piece.appendingPathComponent("script-v2.md").path, line: 4)])
     }
 
+    @Test func datedBundlesInSameDirectoryStayDistinct() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try Data("v1".utf8).write(to: root.appendingPathComponent("2026-11-18-widget.mp4"))
+        try "First caption".write(to: root.appendingPathComponent("2026-11-18-widget.txt"), atomically: true, encoding: .utf8)
+        try Data("v2".utf8).write(to: root.appendingPathComponent("2026-11-19-widget.mp4"))
+        try "Second caption".write(to: root.appendingPathComponent("2026-11-19-widget.txt"), atomically: true, encoding: .utf8)
+
+        var index = HiveSearchIndex()
+        index.add(HiveWorkspaceScanner.scan(roots: [root]))
+        let hits = index.search(SearchQuery(text: "widget", kinds: [.shelf]))
+        #expect(hits.count == 2)
+        #expect(Set(hits.compactMap(\.item.date)) == ["2026-11-18", "2026-11-19"])
+        #expect(Set(hits.map(\.item.id)).count == 2)
+    }
+
+    @Test func categoryFilterRunsBeforeLimitAndReferenceStripsLine() {
+        var lib = ExampleLibrary()
+        for i in 1...120 {
+            lib.add(ApprovedExample(
+                id: "other-\(i)",
+                title: "Pacing pattern \(i)",
+                category: "pacing",
+                content: "Pacing pattern cut example \(i)",
+                whyItWorks: "Keeps attention",
+                approved: "2026-11-18"
+            ))
+        }
+        lib.add(ApprovedExample(
+            id: "hook-target",
+            title: "Target hook",
+            category: "video-hook",
+            content: "Hook pattern example",
+            whyItWorks: "Starts with action",
+            approved: "2026-11-18"
+        ))
+
+        var index = HiveSearchIndex()
+        index.add(examples: lib)
+        let hits = index.search(SearchQuery(text: "pattern", kinds: [.example], category: "video-hook", limit: 5))
+        #expect(hits.count == 1)
+        #expect(hits.first?.item.id == "example:hook-target")
+        #expect(SearchTarget.parseReference("docs/report.md:12") == .file("docs/report.md", line: 12))
+    }
+
     @Test func noPersonalDataInSearchFixtures() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

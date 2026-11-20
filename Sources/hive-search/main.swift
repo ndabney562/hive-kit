@@ -56,15 +56,21 @@ private func isoToday() -> String {
     return f.string(from: Date())
 }
 
-private func loadRegistry(at url: URL) -> SourceRegistry {
-    guard FileManager.default.fileExists(atPath: url.path) else { return SourceRegistry() }
+private func loadRegistry(at url: URL, allowMissing: Bool = false) -> SourceRegistry {
+    if !FileManager.default.fileExists(atPath: url.path) {
+        if allowMissing { return SourceRegistry() }
+        fail("hive-search: file not found: \(url.path)")
+    }
     guard let data = try? Data(contentsOf: url) else { fail("hive-search: can't read \(url.path)") }
     do { return try SourceRegistry.decode(data) }
     catch { fail("hive-search: invalid source registry \(url.path): \(error)") }
 }
 
-private func loadExamples(at url: URL) -> ExampleLibrary {
-    guard FileManager.default.fileExists(atPath: url.path) else { return ExampleLibrary() }
+private func loadExamples(at url: URL, allowMissing: Bool = false) -> ExampleLibrary {
+    if !FileManager.default.fileExists(atPath: url.path) {
+        if allowMissing { return ExampleLibrary() }
+        fail("hive-search: file not found: \(url.path)")
+    }
     guard let data = try? Data(contentsOf: url) else { fail("hive-search: can't read \(url.path)") }
     do { return try ExampleLibrary.decode(data) }
     catch { fail("hive-search: invalid example library \(url.path): \(error)") }
@@ -127,17 +133,14 @@ private func runSearch(presetKinds: Set<SearchKind>?, categoryFilter: String? = 
         }
     }
 
-    var hits = index.search(SearchQuery(
+    let hits = index.search(SearchQuery(
         text: queryText,
         kinds: kinds,
         scopes: scopes,
+        category: categoryFilter,
         includeArchived: !currentOnly,
-        limit: categoryFilter == nil ? limit : max(limit * 4, 100)
+        limit: limit
     ))
-    if let categoryFilter {
-        let wanted = categoryFilter.lowercased()
-        hits = Array(hits.filter { ($0.item.metadata["category"] ?? "").lowercased() == wanted }.prefix(limit))
-    }
 
     if asJSON {
         let encoder = JSONEncoder()
@@ -176,16 +179,16 @@ private func runSource(args initialArgs: [String]) {
         let baseDir = url.deletingLastPathComponent()
 
         let localClaims = registry.claims.filter {
-            let low = $0.source.lowercased()
-            return !low.hasPrefix("http://") && !low.hasPrefix("https://")
+            SearchTarget.parseReference($0.source).kind == .file
         }
         let remoteSkipped = registry.claims.count - localClaims.count
         let localRegistry = SourceRegistry(claims: localClaims)
 
-        let drifts = localRegistry.checkDrift { sourcePath in
-            let fileURL: URL = sourcePath.hasPrefix("/") || sourcePath.hasPrefix("~")
-                ? expandPath(sourcePath)
-                : baseDir.appendingPathComponent(sourcePath)
+        let drifts = localRegistry.checkDrift { sourceRef in
+            let cleanPath = SearchTarget.parseReference(sourceRef).value
+            let fileURL: URL = cleanPath.hasPrefix("/") || cleanPath.hasPrefix("~")
+                ? expandPath(cleanPath)
+                : baseDir.appendingPathComponent(cleanPath)
             guard let data = try? Data(contentsOf: fileURL) else { return nil }
             return String(data: data, encoding: .utf8)
         }
@@ -233,7 +236,7 @@ private func runSource(args initialArgs: [String]) {
             return HiveSearchHash.fingerprint(text)
         }
 
-        var registry = loadRegistry(at: path)
+        var registry = loadRegistry(at: path, allowMissing: true)
         registry.upsert(SourceClaim(
             id: id,
             claim: claim,
@@ -279,7 +282,7 @@ private func runExample(args initialArgs: [String]) {
             .filter { !$0.isEmpty }
         let sourcePath = takeOption("--source", from: &args)
 
-        var library = loadExamples(at: path)
+        var library = loadExamples(at: path, allowMissing: true)
         library.add(ApprovedExample(
             id: id,
             title: title,

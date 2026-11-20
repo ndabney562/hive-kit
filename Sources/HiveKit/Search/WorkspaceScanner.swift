@@ -390,7 +390,8 @@ public enum HiveWorkspaceScanner {
                 usageHistory: usage[slug] ?? [],
                 date: firstISODate(in: (usage[slug] ?? []).joined(separator: " ") + " " + (uploadText ?? "")),
                 directoryPath: pieceDir.path,
-                relatedPaths: related
+                relatedPaths: related,
+                id: "shelf:piece:\(HiveSearchHash.sha256Hex(pieceDir.path).prefix(8)):\(slug)"
             )
             items.append(deliverable.searchItem(scope: scope))
         }
@@ -435,7 +436,8 @@ public enum HiveWorkspaceScanner {
                 usageHistory: ["bundle \(g.date)"],
                 date: g.date,
                 directoryPath: dir.path,
-                relatedPaths: related
+                relatedPaths: related,
+                id: "shelf:bundle:\(HiveSearchHash.sha256Hex(dir.path).prefix(8)):\(g.date):\(g.slug)"
             ).searchItem(scope: scope)
         }
     }

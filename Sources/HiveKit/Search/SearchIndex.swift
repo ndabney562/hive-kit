@@ -5,6 +5,7 @@ public struct SearchQuery: Equatable, Sendable {
     public var text: String
     public var kinds: Set<SearchKind>?
     public var scopes: Set<String>?
+    public var category: String?
     public var includeArchived: Bool
     public var limit: Int
 
@@ -12,12 +13,14 @@ public struct SearchQuery: Equatable, Sendable {
         text: String,
         kinds: Set<SearchKind>? = nil,
         scopes: Set<String>? = nil,
+        category: String? = nil,
         includeArchived: Bool = true,
         limit: Int = 20
     ) {
         self.text = text
         self.kinds = kinds
         self.scopes = scopes
+        self.category = category
         self.includeArchived = includeArchived
         self.limit = limit
     }
@@ -245,9 +248,11 @@ public struct HiveSearchIndex: Sendable {
         let limit = max(0, query.limit)
         guard limit > 0 else { return [] }
 
+        let wantedCategory = query.category?.lowercased()
         let filtered = items.filter { item in
             if let scopes = query.scopes, !scopes.contains(item.scope) { return false }
             if let kinds = query.kinds, !kinds.contains(item.kind) { return false }
+            if let wantedCategory, (item.metadata["category"] ?? "").lowercased() != wantedCategory { return false }
             if !query.includeArchived, item.freshness == .archived { return false }
             return true
         }
