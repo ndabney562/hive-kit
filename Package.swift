@@ -13,6 +13,7 @@ let package = Package(
         .target(name: "HiveKit"),
         .executableTarget(name: "hive-feed-check", dependencies: ["HiveKit"]),
         .executableTarget(name: "hive-link-check", dependencies: ["HiveKit"]),
+        .executableTarget(name: "hive-search", dependencies: ["HiveKit"]),
         .executableTarget(name: "hive-voice", dependencies: ["HiveKit"]),
         .testTarget(name: "HiveKitTests", dependencies: ["HiveKit"]),
     ]
