@@ -353,7 +353,8 @@ public enum HivePattern {
             let isInterface = occs.contains(where: \.isInterface)
             let category: PatternCategory = isInterface ? .interface : .workflow
             let targetPackage: TargetPackage = isInterface ? .hiveDesign : .hiveKit
-            let alreadyShared = sharedSymbols.contains(symbol)
+            let owners = sharedSymbols[symbol] ?? []
+            let alreadyShared = owners.contains { $0.mappedTarget == targetPackage || $0.mappedTarget == nil }
             let action: ProposalAction = alreadyShared ? .adoptExisting : .extractNew
             let summary = alreadyShared
                 ? "`\(symbol)` already exists as a public declaration in \(targetPackage.rawValue); adopt the shared version across \(repoCount) repos."
@@ -450,6 +451,11 @@ public enum HivePattern {
         )
     }
 
+    private struct SharedSymbolOwner: Hashable {
+        let packageName: String
+        let mappedTarget: TargetPackage?
+    }
+
     private struct SwiftDeclaration {
         let name: String
         let line: Int
@@ -459,12 +465,27 @@ public enum HivePattern {
         let header: String
     }
 
-    private static func collectPublicSymbols(in repos: [PatternRepo]) -> Set<String> {
-        var out: Set<String> = []
+    private struct LexedLine {
+        let line: Int
+        let code: String
+        let braceDelta: Int
+        let sawOpenBrace: Bool
+    }
+
+    private static func mappedPackage(for repoName: String) -> TargetPackage? {
+        let low = repoName.lowercased()
+        if low == "hive-design" || low.contains("design") { return .hiveDesign }
+        if low == "hive-kit" || low.contains("kit") { return .hiveKit }
+        return nil
+    }
+
+    private static func collectPublicSymbols(in repos: [PatternRepo]) -> [String: Set<SharedSymbolOwner>] {
+        var out: [String: Set<SharedSymbolOwner>] = [:]
         for repo in repos {
+            let owner = SharedSymbolOwner(packageName: repo.name, mappedTarget: mappedPackage(for: repo.name))
             for (_, text) in collectSwiftFiles(in: repo.root) {
                 for decl in extractDeclarations(from: text) where decl.isPublic {
-                    out.insert(decl.name)
+                    out[decl.name, default: []].insert(owner)
                 }
             }
         }
@@ -512,104 +533,141 @@ public enum HivePattern {
         return results
     }
 
-    private static func nonCommentLines(in text: String) -> [(line: Int, text: String)] {
-        var inBlockComment = false
-        var out: [(Int, String)] = []
+    private static func lexSwiftLines(in text: String) -> [LexedLine] {
+        var blockDepth = 0
+        var out: [LexedLine] = []
+
         for (idx, raw) in text.components(separatedBy: .newlines).enumerated() {
-            let trimmed = raw.trimmingCharacters(in: .whitespaces)
-            if inBlockComment {
-                if trimmed.contains("*/") { inBlockComment = false }
-                continue
+            let chars = Array(raw)
+            var inString = false
+            var escaped = false
+            var codeChars: [Character] = []
+            var braceDelta = 0
+            var sawOpen = false
+            var i = 0
+
+            while i < chars.count {
+                let c = chars[i]
+                let next: Character? = (i + 1 < chars.count) ? chars[i + 1] : nil
+
+                if blockDepth > 0 {
+                    if c == "/" && next == "*" {
+                        blockDepth += 1
+                        i += 2
+                        continue
+                    }
+                    if c == "*" && next == "/" {
+                        blockDepth -= 1
+                        i += 2
+                        continue
+                    }
+                    i += 1
+                    continue
+                }
+
+                if inString {
+                    codeChars.append(c)
+                    if escaped {
+                        escaped = false
+                    } else if c == "\\" {
+                        escaped = true
+                    } else if c == "\"" {
+                        inString = false
+                    }
+                    i += 1
+                    continue
+                }
+
+                if c == "/" && next == "/" {
+                    break
+                }
+                if c == "/" && next == "*" {
+                    blockDepth = 1
+                    i += 2
+                    continue
+                }
+                if c == "\"" {
+                    inString = true
+                    codeChars.append(c)
+                    i += 1
+                    continue
+                }
+                if c == "{" {
+                    braceDelta += 1
+                    sawOpen = true
+                } else if c == "}" {
+                    braceDelta -= 1
+                }
+                codeChars.append(c)
+                i += 1
             }
-            if trimmed.hasPrefix("/*") {
-                if !trimmed.contains("*/") { inBlockComment = true }
-                continue
-            }
-            if trimmed.isEmpty || trimmed.hasPrefix("//") { continue }
-            out.append((idx + 1, trimmed))
+
+            let trimmed = String(codeChars).trimmingCharacters(in: .whitespaces)
+            out.append(LexedLine(line: idx + 1, code: trimmed, braceDelta: braceDelta, sawOpenBrace: sawOpen))
         }
         return out
     }
 
+    private static func nonCommentLines(in text: String) -> [(line: Int, text: String)] {
+        lexSwiftLines(in: text).compactMap { entry in
+            entry.code.isEmpty ? nil : (entry.line, entry.code)
+        }
+    }
+
     private static func extractDeclarations(from text: String) -> [SwiftDeclaration] {
-        let lines = text.components(separatedBy: .newlines)
-        let declPattern = #"^\s*(?:(?:public|internal|private|fileprivate|open|package|final|nonisolated|@MainActor)\s+)*(struct|class|actor|enum|protocol)\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$"#
+        let lexed = lexSwiftLines(in: text)
+        let declPattern = #"^((?:(?:public|internal|private|fileprivate|open|package|final|nonisolated|@MainActor)\s+)*)(struct|class|actor|enum|protocol)\s+([A-Za-z_][A-Za-z0-9_]*)(.*)$"#
         guard let regex = try? NSRegularExpression(pattern: declPattern, options: []) else { return [] }
 
         var declarations: [SwiftDeclaration] = []
         var braceDepth = 0
 
-        for (idx, raw) in lines.enumerated() {
-            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        for (idx, entry) in lexed.enumerated() {
             let depthAtLineStart = braceDepth
-            let delta = netBraceChange(in: raw)
-            braceDepth = max(0, braceDepth + delta)
+            braceDepth = max(0, braceDepth + entry.braceDelta)
 
-            // Only examine top-level declarations to avoid local helper noise inside methods/types.
-            guard depthAtLineStart == 0,
-                  !trimmed.hasPrefix("//"),
-                  !trimmed.hasPrefix("/*") else { continue }
+            // Only examine top-level non-comment declarations so comments and inner helpers cannot skew scope.
+            guard depthAtLineStart == 0, !entry.code.isEmpty else { continue }
 
-            let range = NSRange(trimmed.startIndex..., in: trimmed)
-            guard let m = regex.firstMatch(in: trimmed, range: range),
-                  let nameRange = Range(m.range(at: 2), in: trimmed),
-                  let tailRange = Range(m.range(at: 3), in: trimmed) else { continue }
+            let code = entry.code
+            let range = NSRange(code.startIndex..., in: code)
+            guard let m = regex.firstMatch(in: code, range: range),
+                  let modRange = Range(m.range(at: 1), in: code),
+                  let nameRange = Range(m.range(at: 3), in: code),
+                  let tailRange = Range(m.range(at: 4), in: code) else { continue }
 
-            let name = String(trimmed[nameRange])
-            let tail = String(trimmed[tailRange])
-            let lineCount = measureBlockLength(lines: lines, startIndex: idx)
-            let isPublic = matchesRegex(#"\b(public|package)\b"#, in: trimmed)
+            let modifierPrefix = String(code[modRange])
+            let name = String(code[nameRange])
+            let tail = String(code[tailRange])
+            let lineCount = measureBlockLength(lexed: lexed, startIndex: idx)
+            let isPublic = matchesRegex(#"\b(public|open)\b"#, in: modifierPrefix)
             let isViewConformance = matchesRegex(#":[^\{]*\b(View|ViewModifier)\b"#, in: tail)
             let hasViewSuffix = ["View", "Card", "Row", "Sheet", "Menu", "Button", "Banner", "Badge"]
                 .contains { name.hasSuffix($0) }
 
             declarations.append(SwiftDeclaration(
                 name: name,
-                line: idx + 1,
+                line: entry.line,
                 lineCount: lineCount,
                 isPublic: isPublic,
                 isInterface: isViewConformance || hasViewSuffix,
-                header: trimmed
+                header: code
             ))
         }
         return declarations
     }
 
-    private static func measureBlockLength(lines: [String], startIndex: Int) -> Int {
+    private static func measureBlockLength(lexed: [LexedLine], startIndex: Int) -> Int {
         var depth = 0
         var seenOpen = false
-        for i in startIndex..<lines.count {
-            let change = netBraceChange(in: lines[i], sawOpen: &seenOpen)
-            depth += change
+        for i in startIndex..<lexed.count {
+            depth += lexed[i].braceDelta
+            if lexed[i].sawOpenBrace { seenOpen = true }
             if seenOpen && depth <= 0 {
                 return max(1, i - startIndex + 1)
             }
         }
         return 1
-    }
-
-    private static func netBraceChange(in line: String) -> Int {
-        var ignored = false
-        return netBraceChange(in: line, sawOpen: &ignored)
-    }
-
-    private static func netBraceChange(in line: String, sawOpen: inout Bool) -> Int {
-        var delta = 0
-        var inString = false
-        var escaped = false
-        for ch in line {
-            if escaped { escaped = false; continue }
-            if ch == "\\" && inString { escaped = true; continue }
-            if ch == "\"" { inString.toggle(); continue }
-            if inString { continue }
-            if ch == "{" {
-                delta += 1
-                sawOpen = true
-            } else if ch == "}" {
-                delta -= 1
-            }
-        }
-        return delta
     }
 
     private static func matchesRegex(_ pattern: String, in text: String) -> Bool {

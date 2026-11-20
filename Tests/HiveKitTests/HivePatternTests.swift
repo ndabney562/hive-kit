@@ -191,6 +191,68 @@ struct HivePatternTests {
         #expect(proposals.isEmpty)
     }
 
+    @Test func ignoresCommentBracesAndBlockCommentDeclarations() throws {
+        let root = try makeTempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let code = """
+        // Example: {
+        /*
+        struct FakeCommented { let v = 1 }
+        */
+        struct RealHelper {
+            let value = 1
+        }
+        """
+        let alpha = try makeRepo("AppAlpha", in: root, files: ["Helper.swift": code])
+        let beta = try makeRepo("AppBeta", in: root, files: ["Helper.swift": code])
+
+        let proposals = HivePattern.scan(repos: [alpha, beta], rules: [])
+        #expect(proposals.map(\.id) == ["symbol:RealHelper"])
+        #expect(proposals.first?.uses.first?.lineCount == 3)
+    }
+
+    @Test func distinguishesPublicOpenPackageVisibilityAndOwningSharedPackage() throws {
+        let root = try makeTempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let alpha = try makeRepo("AppAlpha", in: root, files: [
+            "Models.swift": """
+            struct PkgHelper { let x = 1 }
+            class OpenService { func run() {} }
+            struct WrongPkgStore { let x = 1 }
+            """,
+        ])
+        let beta = try makeRepo("AppBeta", in: root, files: [
+            "Models.swift": """
+            struct PkgHelper { let x = 1 }
+            class OpenService { func run() {} }
+            struct WrongPkgStore { let x = 1 }
+            """,
+        ])
+        let sharedKit = try makeRepo("hive-kit", in: root, files: [
+            "Shared.swift": """
+            package struct PkgHelper { let x = 1 }
+            open class OpenService { public init() {} }
+            """,
+        ])
+        let sharedDesign = try makeRepo("hive-design", in: root, files: [
+            "Design.swift": """
+            public struct WrongPkgStore { public init() {} }
+            """,
+        ])
+
+        let proposals = HivePattern.scan(repos: [alpha, beta], sharedPackages: [sharedKit, sharedDesign], rules: [])
+        let byID = Dictionary(uniqueKeysWithValues: proposals.map { ($0.id, $0) })
+
+        #expect(byID["symbol:PkgHelper"]?.action == .extractNew)
+        #expect(byID["symbol:OpenService"]?.action == .adoptExisting)
+        #expect(byID["symbol:OpenService"]?.targetPackage == .hiveKit)
+        // A workflow symbol only declared in hive-design must not claim to exist in hive-kit
+        #expect(byID["symbol:WrongPkgStore"]?.action == .extractNew)
+        #expect(byID["symbol:WrongPkgStore"]?.targetPackage == .hiveKit)
+    }
+
     @Test func noPersonalDataInPatternCodeAndFixtures() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
