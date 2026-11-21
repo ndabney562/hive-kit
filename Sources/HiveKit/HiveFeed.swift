@@ -119,6 +119,8 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
     public var income: Income?
     /// What the shared plans cost a month and each project's API-credit use (Budget/_Shared.md); added 2026-11-17.
     public var budget: Budget?
+    /// Experiments notebook summary (`reviews/experiments.json`, Hive build order #21, Lab 16); added 2026-11-21.
+    public var lab: Lab?
 
     public struct Budget: Decodable, Equatable, Sendable {
         public struct Item: Decodable, Equatable, Sendable {
@@ -173,6 +175,26 @@ public struct BusinessSummary: Decodable, Equatable, Sendable {
         /// Pending sales more than 7 days past their payout date: no deposit recorded, check the platform.
         public var overdue: [Late]
         public var overdueUsd: Double
+    }
+
+    public struct Lab: Decodable, Equatable, Sendable {
+        public struct Experiment: Decodable, Equatable, Sendable {
+            public var id: String
+            public var route: String
+            public var status: String
+            public var startedOn: String
+            public var checkOn: String
+            public var metric: String
+            public var observedDirection: String
+            public var causation: String
+            public var decision: String?
+        }
+        public var running: Int
+        public var completed: Int
+        public var dueForCheck: Int
+        public var pilotUnusedDays: Int
+        public var pilotStopAfterDays: Int
+        public var experiments: [Experiment]
     }
 }
 
