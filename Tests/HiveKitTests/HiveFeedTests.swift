@@ -116,4 +116,21 @@ struct HiveFeedTests {
         #expect(ideas?.summary.ideas.first?.askedOn == "2026-11-15")
         #expect(ideas?.summary.ideas.first?.ais == ["Claude"])
     }
+
+    @Test func decodesBusinessLabAndOlderFeedsWithoutLab() throws {
+        let withLab = try #require(try HiveFeed.decode(fixture("ai-business-db"), as: BusinessSummary.self))
+        let lab = try #require(withLab.summary.lab)
+        #expect(lab.running == 1)
+        #expect(lab.completed == 0)
+        #expect(lab.dueForCheck == 0)
+        #expect(lab.pilotUnusedDays == 0)
+        #expect(lab.pilotStopAfterDays == 14)
+        #expect(lab.experiments.first?.id == "sample-title-test")
+        #expect(lab.experiments.first?.observedDirection == "insufficient_data")
+        #expect(lab.experiments.first?.causation == "none_measured")
+        #expect(lab.experiments.first?.decision == nil)
+
+        let older = try #require(try HiveFeed.decode(Data(#"{"schema":1,"app":"ai-business-db","written_at":"2026-11-09T17:00:00Z","stale_after_minutes":360,"summary":{"day":1,"days_total":90,"ends":"2027-02-06","earned_usd":0,"routes":[],"next_checkpoint":null}}"#.utf8), as: BusinessSummary.self))
+        #expect(older.summary.lab == nil)
+    }
 }

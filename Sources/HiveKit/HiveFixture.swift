@@ -182,7 +182,9 @@ public enum HiveFixture {
                     "payouts": {"next": {"date": "{{day+5}}", "usd": 5.0}, "waiting_usd": 5.0, "paid_usd": 36.5, "overdue": [], "overdue_usd": 0}},
          "budget": {"month_usd": 30.0, "items": [{"name": "Sample plan", "usd_month": 20.0, "estimate": false}, {"name": "Sample tool", "usd_month": 10.0, "estimate": true}],
                     "estimates": 1, "credit": [{"project": "sample-app", "allot_usd": 25, "used_usd": 4.2}],
-                    "renewals": [{"item": "Sample plan", "project": "sample-app", "date": "{{day+20}}", "decide_by": "{{day+13}}", "cost": "$20/mo", "decision": "keep"}]}}
+                    "renewals": [{"item": "Sample plan", "project": "sample-app", "date": "{{day+20}}", "decide_by": "{{day+13}}", "cost": "$20/mo", "decision": "keep"}]},
+         "lab": {"running": 1, "completed": 0, "due_for_check": 0, "pilot_unused_days": 0, "pilot_stop_after_days": 14,
+                 "experiments": [{"id": "sample-title-test", "route": "Sample Shop", "status": "running", "started_on": "{{day-3}}", "check_on": "{{day+4}}", "metric": "sample_orders", "observed_direction": "insufficient_data", "causation": "none_measured", "decision": null}]}}
         """,
         "releases": """
         {"app": "SampleApp", "version": "1.0", "build": "20990101.1200", "commit": "0000000", "at": "{{recent}}",
@@ -230,7 +232,8 @@ public enum HiveFixture {
          "income": {"net_usd": 0, "month_net_usd": 0, "pending_usd": 0, "sales": 0, "by_route": {}, "month": "{{month}}",
                     "month_by_route": {}, "goal_usd": 100, "last_sale": null,
                     "payouts": {"next": null, "waiting_usd": 0, "paid_usd": 0, "overdue": [], "overdue_usd": 0}},
-         "budget": {"month_usd": 0, "items": [], "estimates": 0, "credit": [], "renewals": []}}
+         "budget": {"month_usd": 0, "items": [], "estimates": 0, "credit": [], "renewals": []},
+         "lab": {"running": 0, "completed": 0, "due_for_check": 0, "pilot_unused_days": 0, "pilot_stop_after_days": 14, "experiments": []}}
         """,
         "releases": """
         {"app": "SampleApp", "version": "0.1", "build": "20990101.0000", "commit": "0000000", "at": "{{recent}}",
