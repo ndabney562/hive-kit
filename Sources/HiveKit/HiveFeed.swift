@@ -331,6 +331,52 @@ public struct JobsSummary: Decodable, Equatable, Sendable {
     public var problems: [String]?
 }
 
+/// `tools.json` (Noah, 2026-11-21: "a log of my most used skills, plugins and connectors"): Claude's tool calls on
+/// the Mac, counted per capability by agent-rules `capability_usage_feed.py` every Sunday. Names and counts only.
+public struct ToolsSummary: Decodable, Equatable, Sendable {
+    public struct Use: Decodable, Equatable, Sendable {
+        /// A capability id: `skill`, `plugin:skill`, `connector:Name`, `mcp:plugin:server` or a plugin name.
+        public var id: String
+        /// skill, agent, command, connector or plugin.
+        public var kind: String
+        public var uses: Int
+        public var name: String { ToolsSummary.name(id) }
+    }
+    public struct Week: Decodable, Equatable, Sendable {
+        /// The week's last day, YYYY-MM-DD (UTC).
+        public var weekTo: String
+        public var usesTotal: Int
+    }
+    public struct Plugin: Decodable, Equatable, Sendable { public var plugin: String; public var uses: Int }
+    public struct Connector: Decodable, Equatable, Sendable { public var name: String; public var uses: Int }
+    public struct Installed: Decodable, Equatable, Sendable {
+        public var skills: Int; public var plugins: Int; public var connectors: Int
+        public var total: Int { skills + plugins + connectors }
+    }
+    /// This week's most used, at most 15, most first.
+    public var week: [Use]
+    /// This week first, then the 4 before it.
+    public var weeks: [Week]
+    public var topPlugins: [Plugin]
+    public var topConnectors: [Connector]
+    public var installed: Installed
+    /// Indexed capabilities with no use in the 5 weeks.
+    public var neverUsed: Int
+
+    /// The short name to show: `connector:vidIQ` reads vidIQ, `superpowers:brainstorming` reads brainstorming,
+    /// `mcp:playwright:playwright` reads playwright.
+    public static func name(_ id: String) -> String {
+        let parts = id.split(separator: ":").map(String.init)
+        return parts.last.map { $0.isEmpty ? id : $0 } ?? id
+    }
+
+    /// "vidIQ, Firecrawl, Higgsfield": this week's top `n`, or nil when nothing was used.
+    public func top(_ n: Int = 3) -> String? {
+        let names = week.prefix(n).map(\.name)
+        return names.isEmpty ? nil : names.joined(separator: ", ")
+    }
+}
+
 /// Reads one app's feed file with the signed-in user's token (read-only, like every Hive app).
 public struct HiveFeedReader: Sendable {
     /// The raw `<app>.json` bytes, or nil when the file doesn't exist yet.
