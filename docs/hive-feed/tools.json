@@ -1,0 +1,26 @@
+{
+ "schema": 1,
+ "app": "tools",
+ "written_at": "2026-11-22T11:10:00Z",
+ "stale_after_minutes": 10080,
+ "summary": {
+  "week": [
+   {"id": "connector:vidIQ", "kind": "connector", "uses": 154},
+   {"id": "connector:Firecrawl", "kind": "connector", "uses": 146},
+   {"id": "superpowers:brainstorming", "kind": "skill", "uses": 4},
+   {"id": "images-queue", "kind": "skill", "uses": 3},
+   {"id": "mcp:playwright:playwright", "kind": "connector", "uses": 6}
+  ],
+  "weeks": [
+   {"week_to": "2026-11-22", "uses_total": 485},
+   {"week_to": "2026-11-15", "uses_total": 396},
+   {"week_to": "2026-11-08", "uses_total": 431},
+   {"week_to": "2026-11-01", "uses_total": 52},
+   {"week_to": "2026-10-25", "uses_total": 4}
+  ],
+  "top_plugins": [{"plugin": "superpowers", "uses": 8}, {"plugin": "playwright", "uses": 6}],
+  "top_connectors": [{"name": "vidIQ", "uses": 154}, {"name": "Firecrawl", "uses": 146}],
+  "installed": {"skills": 483, "plugins": 43, "connectors": 72},
+  "never_used": 558
+ }
+}

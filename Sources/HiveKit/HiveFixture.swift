@@ -100,6 +100,7 @@ public enum HiveFixture {
         case "releases": return await classify(ReleasesSummary.self)
         case "ideas": return await classify(IdeasSummary.self)
         case "jobs": return await classify(JobsSummary.self)
+        case "tools": return await classify(ToolsSummary.self)
         default: return await classify(AnySummary.self)
         }
     }
@@ -149,7 +150,7 @@ public enum HiveFixture {
     /// Each app's own window (docs/hive-feed/*.json).
     static let staleAfter: [String: Int] = [
         "hivemind": 90, "hive-tempo": 90, "health-score": 120, "hiveworld": 1560, "ai-business-db": 360,
-        "releases": 11520, "ideas": 11520, "iphone": 11520, "jobs": 90,
+        "releases": 11520, "ideas": 11520, "iphone": 11520, "jobs": 90, "tools": 10080,
     ]
 
     static let normal: [String: String] = [
@@ -201,6 +202,17 @@ public enum HiveFixture {
         {"ideas": [{"asked_on": "{{today}}", "n": 1, "kind": "feature", "title": "Sample idea", "why_now": "Sample reason",
                     "reuses": "Hive feed", "size": "S", "ais": ["claude"]}]}
         """,
+        "tools": """
+        {"week": [{"id": "connector:Sample Search", "kind": "connector", "uses": 40},
+                  {"id": "sample-skill", "kind": "skill", "uses": 12},
+                  {"id": "sample-kit:sample-plan", "kind": "skill", "uses": 5}],
+         "weeks": [{"week_to": "{{today}}", "uses_total": 57}, {"week_to": "2099-01-01", "uses_total": 31},
+                   {"week_to": "2098-12-25", "uses_total": 0}, {"week_to": "2098-12-18", "uses_total": 8},
+                   {"week_to": "2098-12-11", "uses_total": 2}],
+         "top_plugins": [{"plugin": "sample-kit", "uses": 5}],
+         "top_connectors": [{"name": "Sample Search", "uses": 40}],
+         "installed": {"skills": 20, "plugins": 3, "connectors": 4}, "never_used": 24}
+        """,
         "jobs": """
         {"counts": {"failed": 3, "running": 1, "waiting": 2, "finished": 2},
          "issues": [{"cause": "sign-in or permission refused", "jobs": ["sample-pins", "sample-routine"]},
@@ -241,6 +253,10 @@ public enum HiveFixture {
         """,
         "ideas": #"{"ideas": []}"#,
         "jobs": #"{"counts": {"failed": 0, "running": 0, "waiting": 0, "finished": 0}, "issues": [], "jobs": [], "problems": []}"#,
+        "tools": """
+        {"week": [], "weeks": [{"week_to": "{{today}}", "uses_total": 0}], "top_plugins": [], "top_connectors": [],
+         "installed": {"skills": 0, "plugins": 0, "connectors": 0}, "never_used": 0}
+        """,
         "iphone": """
         {"scanned": "{{today}}T09:00", "free_gb": null, "total_gb": null, "free_pct": null, "battery_health_pct": null,
          "ios": null, "ios_latest": null, "update_pending": false}

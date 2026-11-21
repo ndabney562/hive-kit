@@ -32,6 +32,19 @@ struct HiveFeedTests {
         #expect(jobs?.summary.jobs.first(where: { $0.name == "daily-check" })?.output == "2026-11-17 all green")
     }
 
+    @Test func decodesTools() throws {
+        let tools = try #require(try HiveFeed.decode(fixture("tools"), as: ToolsSummary.self))
+        #expect(tools.summary.week.first?.name == "vidIQ")
+        #expect(tools.summary.top() == "vidIQ, Firecrawl, brainstorming")
+        #expect(tools.summary.weeks.count == 5)
+        #expect(tools.summary.weeks.first?.usesTotal == 485)
+        #expect(tools.summary.topPlugins.first?.plugin == "superpowers")
+        #expect(tools.summary.installed.total == 598)
+        #expect(tools.summary.neverUsed == 558)
+        #expect(ToolsSummary.name("mcp:playwright:playwright") == "playwright")
+        #expect(ToolsSummary.name("images-queue") == "images-queue")
+    }
+
     @Test func decodesEachFixture() throws {
         let mind = try HiveFeed.decode(fixture("hivemind"), as: HiveMindSummary.self)
         #expect(mind?.summary.quota.first?.leftPct == 90)

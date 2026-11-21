@@ -64,6 +64,9 @@ struct HiveFixtureTests {
         #expect(jobs?.summary.issues.first?.jobs == ["sample-pins", "sample-routine"])
         #expect(jobs?.summary.jobs.first?.lastOk?.output == "Sample: 12 files copied")
         #expect(jobs?.summary.counts.failed == 3)
+        let tools = try feed("tools", .normal, as: ToolsSummary.self)
+        #expect(tools?.summary.top() == "Sample Search, sample-skill, sample-plan")
+        #expect(try feed("tools", .empty, as: ToolsSummary.self)?.summary.top() == nil)
     }
 
     /// Fictional only: the repo is public and the fixtures are shown in screenshots.

@@ -29,6 +29,7 @@ public enum FeedContract {
         Contract(app: "releases", ReleasesSummary.self),
         Contract(app: "ideas", IdeasSummary.self),
         Contract(app: "jobs", JobsSummary.self),
+        Contract(app: "tools", ToolsSummary.self),
     ]
 
     /// Every way `data` fails the envelope rules (docs/hive-feed.md) or the reader type; empty when it passes.
