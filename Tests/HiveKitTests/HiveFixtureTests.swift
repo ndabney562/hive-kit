@@ -64,6 +64,10 @@ struct HiveFixtureTests {
         #expect(jobs?.summary.issues.first?.jobs == ["sample-pins", "sample-routine"])
         #expect(jobs?.summary.jobs.first?.lastOk?.output == "Sample: 12 files copied")
         #expect(jobs?.summary.counts.failed == 3)
+        // 1.28.0: the evening shutdown's "runs tonight" fields
+        let night = jobs?.summary.jobs.first { $0.name == "sample-night" }
+        #expect(night?.next?.hasSuffix(" 23:15") == true)
+        #expect(jobs?.summary.jobs.first { $0.name == "sample-sync" }?.everyMinutes == 30)
         let tools = try feed("tools", .normal, as: ToolsSummary.self)
         #expect(tools?.summary.top() == "Sample Search, sample-skill, sample-plan")
         // Weeks run newest first, 7 days apart and ending today, so the demo chart's labels are in order for any now.

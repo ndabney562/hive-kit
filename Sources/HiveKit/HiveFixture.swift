@@ -214,7 +214,7 @@ public enum HiveFixture {
          "installed": {"skills": 20, "plugins": 3, "connectors": 4}, "never_used": 24}
         """,
         "jobs": """
-        {"counts": {"failed": 3, "running": 1, "waiting": 2, "finished": 2},
+        {"counts": {"failed": 3, "running": 1, "waiting": 2, "finished": 4},
          "issues": [{"cause": "sign-in or permission refused", "jobs": ["sample-pins", "sample-routine"]},
                     {"cause": "stopped with exit code 1 and no message", "jobs": ["sample-backup"]}],
          "jobs": [{"kind": "launchd", "name": "sample-backup", "status": "failed", "detail": "exit 1.",
@@ -222,7 +222,9 @@ public enum HiveFixture {
                   {"kind": "task", "name": "sample-pins", "status": "failed", "at": "09:00", "cause": "sign-in or permission refused"},
                   {"kind": "routine", "name": "sample-routine", "status": "failed", "at": "09:30", "cause": "sign-in or permission refused"},
                   {"kind": "launchd", "name": "sample-server", "status": "running", "output": "Sample: listening"},
-                  {"kind": "launchd", "name": "sample-weekly", "status": "waiting"},
+                  {"kind": "launchd", "name": "sample-weekly", "status": "waiting", "next": "{{day+3}} 06:10"},
+                  {"kind": "launchd", "name": "sample-night", "status": "finished", "output": "Sample: 3 renders", "next": "{{today}} 23:15"},
+                  {"kind": "launchd", "name": "sample-sync", "status": "finished", "every_minutes": 30},
                   {"kind": "task", "name": "sample-evening", "status": "waiting"},
                   {"kind": "launchd", "name": "sample-cleanup", "status": "finished", "output": "Sample: freed 1.2 GB"},
                   {"kind": "task", "name": "sample-morning", "status": "finished", "at": "07:00"}],
