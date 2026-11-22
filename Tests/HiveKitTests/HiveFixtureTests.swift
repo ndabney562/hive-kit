@@ -66,6 +66,14 @@ struct HiveFixtureTests {
         #expect(jobs?.summary.counts.failed == 3)
         let tools = try feed("tools", .normal, as: ToolsSummary.self)
         #expect(tools?.summary.top() == "Sample Search, sample-skill, sample-plan")
+        // Weeks run newest first, 7 days apart and ending today, so the demo chart's labels are in order for any now.
+        let ends = tools?.summary.weeks.map(\.weekTo) ?? []
+        let ymd = DateFormatter()
+        ymd.dateFormat = "yyyy-MM-dd"
+        ymd.timeZone = TimeZone(identifier: "UTC")
+        let days = ends.compactMap { ymd.date(from: $0) }
+        #expect(days.count == 5)
+        #expect(zip(days, days.dropFirst()).allSatisfy { $0.timeIntervalSince($1) == 7 * 86400 })
         #expect(try feed("tools", .empty, as: ToolsSummary.self)?.summary.top() == nil)
     }
 

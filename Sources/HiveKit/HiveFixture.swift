@@ -206,9 +206,9 @@ public enum HiveFixture {
         {"week": [{"id": "connector:Sample Search", "kind": "connector", "uses": 40},
                   {"id": "sample-skill", "kind": "skill", "uses": 12},
                   {"id": "sample-kit:sample-plan", "kind": "skill", "uses": 5}],
-         "weeks": [{"week_to": "{{today}}", "uses_total": 57}, {"week_to": "2099-01-01", "uses_total": 31},
-                   {"week_to": "2098-12-25", "uses_total": 0}, {"week_to": "2098-12-18", "uses_total": 8},
-                   {"week_to": "2098-12-11", "uses_total": 2}],
+         "weeks": [{"week_to": "{{today}}", "uses_total": 57}, {"week_to": "{{day-7}}", "uses_total": 31},
+                   {"week_to": "{{day-14}}", "uses_total": 0}, {"week_to": "{{day-21}}", "uses_total": 8},
+                   {"week_to": "{{day-28}}", "uses_total": 2}],
          "top_plugins": [{"plugin": "sample-kit", "uses": 5}],
          "top_connectors": [{"name": "Sample Search", "uses": 40}],
          "installed": {"skills": 20, "plugins": 3, "connectors": 4}, "never_used": 24}
