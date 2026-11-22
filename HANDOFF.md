@@ -2,6 +2,7 @@
 
 - **Goal:** One Swift package with the Hive apps' shared logic, so HiveMind, HiveScore, HiveTempo and HiveRounds can't drift apart (Noah, 2026-11-07).
 - **Done:**
+  - **2026-11-22 (Claude Opus 5.5): 1.28.0 jobs `next` and `everyMinutes`** (HiveTempo evening shutdown, ideas #21/#40). `JobsSummary.Job` gains a launchd job's next calendar run (`next`, "YYYY-MM-DD HH:MM" Mac local, within a week) and its interval (`everyMinutes`); written by hive-tempo `planner/tempoplan/jobs.py`. Fixture adds `sample-night` (tonight 23:15) and `sample-sync` (every 30 min); `HiveFixtureTests` checks both.
   - **2026-11-21 (Claude Opus 5.5): tools fixture weeks are relative.** `HiveFixture`'s `tools` weeks used fixed `2099-01-01`/`2098-12-*` dates beside `{{today}}`, so the demo chart's labels ran out of order; now `{{day-7}}` to `{{day-28}}`. Test `sameShapeAsTheDocsExamples` checks the 5 weeks run newest first, 7 days apart (failed before: 1 issue; passes after; 155 Swift tests).
   - **2026-11-21 (Claude Opus 5.5): 1.27.0 `ToolsSummary`** (Noah: "I want a log of my most used skills, plugins and connectors included in hive tempo/hive score app somewhere"). New feed `tools` (agent-rules `capability_usage_feed.py`, Sundays): `ToolsSummary` (`week`, `weeks`, `topPlugins`, `topConnectors`, `installed`, `neverUsed`; `ToolsSummary.name(id)` gives the short name, `top(3)` the HiveTempo card line), `FeedContract` and `HiveFixture` (normal + empty) entries, example `docs/hive-feed/tools.json`, rows in `docs/hive-feed.md`. The live file passes `hive-feed-check`. Tests: `decodesTools` and fixture checks.
   - **2026-11-21 (Antigravity, Orchestrator (Neon)): `BusinessSummary.Lab` feed contract** (Hive build order #21, Lab 16). Added optional `BusinessSummary.lab` (`running`, `completed`, `dueForCheck`, `pilotUnusedDays`, `pilotStopAfterDays`, `experiments[]` with `observedDirection`/`causation`/`decision`) in `Sources/HiveKit/HiveFeed.swift`, normal/empty fictional fixtures in `Sources/HiveKit/HiveFixture.swift`, schema docs in `docs/hive-feed.md` and `docs/hive-feed/ai-business-db.json`, and decoding tests in `Tests/HiveKitTests/HiveFeedTests.swift`. Verified full `PROJECT.md` Swift + script suites and `hive-feed-check ai-business-db`.
@@ -19,8 +20,8 @@
   - **2026-11-17 (Claude Opus 5.5): 1.17.0 `Budget.renewals`** (#4), **1.16.0 `BusinessSummary.budget`** (#3), **1.15.0 `Income.payouts`** (#2), **1.14.0 `BusinessSummary.income` + `IncomeGoal`** (#1).
   - Older Done entries (2026-11-07 to 2026-11-15): see [docs/HANDOFF-ARCHIVE.md](docs/HANDOFF-ARCHIVE.md).
 - **In progress:** nothing.
-- **Next step (exact):** Update downstream apps (`HiveScore`, `HiveTempo`, `HiveWorld`, `HiveBeat`) when ready to bump `hive-kit` (`1.26.0`) and adopt proposed patterns (`HMScroll`, shared JSON store, widget/side-menu helpers).
+- **Next step (exact):** [Claude Code, 2026-11-22] Update `HiveWorld` (on 1.21.0) and `HiveBeat` (on 1.11.0) to `hive-kit` 1.28.0; HiveTempo moves with its evening shutdown PR. Then adopt the proposed patterns and adopt proposed patterns (`HMScroll`, shared JSON store, widget/side-menu helpers).
 - **Blockers:** none.
-- **Last test result:** 2026-11-19 (`antigravity/phase13-pattern`): `swift test` (153 tests in 16 suites, 1 live sign-in skipped) and all script suites (`testflight.test.sh`, `asc_check.test.sh`, `asc_public_link.test.sh`, `test_evidence.py`) passed.
+- **Last test result:** 2026-11-22 (`claude/jobs-next-run`): `swift test` (155 tests in 16 suites) and all script suites (`testflight.test.sh`, `asc_check.test.sh`, `asc_public_link.test.sh`, `test_evidence.py`) passed.
 - **Last commit hash:** see `git log -1`.
-- **Model + timestamp:** Antigravity (Orchestrator (Neon)), 2026-11-19 20:20
+- **Model + timestamp:** Claude Opus 5.5, 2026-11-22

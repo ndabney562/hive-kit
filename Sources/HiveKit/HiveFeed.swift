@@ -316,6 +316,10 @@ public struct JobsSummary: Decodable, Equatable, Sendable {
         public var lastOk: LastOK?
         /// Marked fixed today (hive-tempo planner/handled.py).
         public var handled: Bool?
+        /// A launchd job's next calendar run, "YYYY-MM-DD HH:MM" local to the Mac, within a week (1.28.0).
+        public var next: String?
+        /// A launchd job that runs every N minutes instead of at set times (1.28.0).
+        public var everyMinutes: Int?
     }
     /// Failed jobs with one cause: one issue.
     public struct Issue: Decodable, Equatable, Sendable {
