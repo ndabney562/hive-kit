@@ -22,7 +22,7 @@
   - **2026-11-17 (Claude Opus 5.5): 1.17.0 `Budget.renewals`** (#4), **1.16.0 `BusinessSummary.budget`** (#3), **1.15.0 `Income.payouts`** (#2), **1.14.0 `BusinessSummary.income` + `IncomeGoal`** (#1).
   - Older Done entries (2026-11-07 to 2026-11-15): see [docs/HANDOFF-ARCHIVE.md](docs/HANDOFF-ARCHIVE.md).
 - **In progress:** nothing.
-- **Next step (exact):** [Claude Code, by 2026-11-29] Adopt 1.30.0 `AppGroup` in HiveTempo (`Shared/WidgetStore.swift` fallback `.none`, `Score/ScoreModel.swift` `.temporary`) and HiveWorld (`WorldStore.cacheURL` `.applicationSupport`, widget `Provider.cache` `.none`); HiveScore `Readings` stays (frozen). [Done 2026-11-23] widget/side-menu scan, see Done. JSON store adoption, 2026-11-23: [Done] HiveWorld (#30), HiveTempo `LocalStateStore` (#160) and `WidgetStore` (#163). [Parked by Noah 2026-11-23] HiveBeat (`SetlistStore`, `MarkupSaver`: local branch `claude/hivebeat-json-store`, see its STOPPED.md) and HiveRounds (`HiveRoundsKit` stores). [Not moved] HiveScore `Readings`: HiveScore is frozen (bug fixes only).
+- **Next step (exact):** none open for the shared packages. [Done 2026-11-23] 1.30.0 `AppGroup` adopted in HiveTempo (#164) and HiveWorld (#31); `hive-pattern scan` of the active apps shows no `app-group-container` hit. Not moved: HiveScore `Readings` (frozen), HiveBeat and HiveRounds (parked by Noah, 2026-11-23). Rerun `hive-pattern scan` when a new Hive app starts or a parked one restarts.
 - **Blockers:** none.
 - **Last test result:** 2026-11-22 (`claude/json-store`): `swift test` (166 tests in 17 suites) and all script suites (`testflight.test.sh`, `asc_check.test.sh`, `asc_public_link.test.sh`, `test_evidence.py`) passed.
 - **Last commit hash:** see `git log -1`.
