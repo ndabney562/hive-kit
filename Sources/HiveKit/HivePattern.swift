@@ -223,6 +223,20 @@ public enum HivePattern {
             return [(first.line, first.text)]
         },
         PatternRule(
+            id: "app-group-container",
+            title: "Hand-built App Group path",
+            category: .workflow,
+            targetPackage: .hiveKit,
+            action: .adoptExisting,
+            summary: "App Group container looked up by hand; use HiveKit's `AppGroup.url` / `JSONFileStore.appGroup` (since 1.30.0).",
+            minRepos: 1,
+            skipRepos: ["hive-kit", "HiveKit"]
+        ) { source in
+            nonCommentLines(in: source)
+                .filter { $0.text.contains("forSecurityApplicationGroupIdentifier") }
+                .map { ($0.line, $0.text) }
+        },
+        PatternRule(
             id: "raw-vertical-scrollview",
             title: "Raw vertical ScrollView instead of HMScroll",
             category: .interface,
