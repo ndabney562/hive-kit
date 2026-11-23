@@ -103,6 +103,24 @@ struct HivePatternTests {
         #expect(ruleHit.repoCount == 2)
     }
 
+    @Test func appGroupRuleAsksToAdoptTheSharedHelper() throws {
+        let root = try makeTempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let byHand = """
+        import Foundation
+        let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.x")?
+            .appendingPathComponent("widget.json")
+        """
+        let adopted = """
+        import HiveKit
+        let store = JSONFileStore<[String]>.appGroup("group.x", "widget.json")
+        """
+        let alpha = try makeRepo("AppAlpha", in: root, files: ["Widget.swift": byHand, "Adopted.swift": adopted])
+        let hit = try #require(HivePattern.scan(repos: [alpha]).first { $0.id == "rule:app-group-container" })
+        #expect(hit.action == .adoptExisting)
+        #expect(hit.uses.map(\.file) == ["Widget.swift"])
+    }
+
     @Test func jsonStoreRulesAskToAdoptTheSharedStoreEvenInOneRepo() throws {
         let root = try makeTempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
