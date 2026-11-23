@@ -51,13 +51,9 @@ echo "$out" | grep -q "KEY=" && fail "archive must not run without an app record
 HOME="$t/my home" sh "$here/testflight.sh" "$t/app" Demo Demo --dry-run | grep -q "asc_check.py $t/app" || fail "dry run shows the check"
 out=$(OSA_LOG="$t/osa.log" HIVE_BUILD=7 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo "Demo App")
 echo "$out" | grep -q "KEY=\[$t/my home/.appstoreconnect/private_keys/AuthKey_K1.p8\]" || fail "key path split: $out"
-[ "$(sed -n 1p "$t/osa.log")" = "Update Demo App in TestFlight (build 7)" ] || fail "reminder title: $(cat "$t/osa.log")"
-[ "$(sed -n 2p "$t/osa.log")" = "Ready: 3 tests pass, 2 screens" ] || fail "reminder evidence line: $(cat "$t/osa.log")"
+[ -f "$t/osa.log" ] && fail "no Apple Reminders item (reminders live only in HiveTempo)"
+echo "$out" | grep -q "HiveTempo step (add under Next step in HANDOFF.md, not Apple Reminders): \[Noah, ~2 min\] Update Demo App in TestFlight (build 7). Ready: 3 tests pass, 2 screens" || fail "HiveTempo step line: $out"
 [ "$(cat "$t/ev.args")" = "$t/app --build 7 --app Demo" ] || fail "evidence arguments: $(cat "$t/ev.args")"
-echo "$out" | grep -q "Reminder set for 20 minutes" || fail "reminder message"
-rm "$t/osa.log"
-OSA_LOG="$t/osa.log" HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo >/dev/null
-[ -f "$t/osa.log" ] && fail "HIVE_NO_REMIND should skip the reminder"
 # The archive goes through heavy-guard (a fake one records its arguments, then runs the command).
 printf '#!/bin/sh\necho "$@" > "$GUARD_LOG"; shift 2; exec "$@"\n' > "$t/guard" && chmod +x "$t/guard"
 out=$(GUARD_LOG="$t/guard.log" HEAVY_GUARD_BIN="$t/guard" HIVE_NO_REMIND=1 HOME="$t/my home" PATH="$t:$PATH" sh "$here/testflight.sh" "$t/app" Demo Demo)

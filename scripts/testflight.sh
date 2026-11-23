@@ -8,8 +8,8 @@
 # and ASC_ISSUER_ID (key file in ~/.appstoreconnect/private_keys/). HiveTempo saw the key answer "Authentication
 # failed" in xcodebuild (2026-11-05), so the Apple ID is the default.
 # Optional: <repo>/Config/testflight-note.txt is printed after a successful upload (e.g. a CloudKit reminder).
-# After an upload it adds a Reminders item with an alert in 20 minutes ("Update <name> in TestFlight"), which reaches
-# the iPhone too (agent rules: a step more than 10 minutes away gets a reminder). HIVE_NO_REMIND=1 turns it off.
+# After an upload it prints the HiveTempo step to add to the app's HANDOFF.md ("Update <name> in TestFlight"). It never
+# makes an Apple Reminders item: reminders live only in HiveTempo (Noah, 2026-11-23; agent rules v27).
 set -eu
 usage() { echo "usage: testflight.sh <repo dir> <project name> <display name> [--dry-run]" >&2; exit 2; }
 [ $# -ge 3 ] || usage
@@ -132,14 +132,5 @@ if [ "$dry" -eq 0 ]; then
   [ -f "$ev_json" ] && echo "Commit release-evidence/$build/evidence.json (and its .gitignore) with the HANDOFF update."
   echo "Apple processes it in about 15 minutes; then it appears in App Store Connect › $name › TestFlight and in the TestFlight app on your iPhone."
   if [ -f "$here/Config/testflight-note.txt" ]; then cat "$here/Config/testflight-note.txt"; fi
-  if [ -z "${HIVE_NO_REMIND:-}" ] && command -v osascript >/dev/null; then
-    title="Update $name in TestFlight (build $build)"
-    if osascript -e 'on run argv' \
-      -e 'tell application "Reminders" to make new reminder with properties {name:(item 1 of argv), body:(item 2 of argv), remind me date:((current date) + 20 * minutes)}' \
-      -e 'end run' "$title" "$evidence_line" >/dev/null 2>&1; then
-      echo "Reminder set for 20 minutes from now: $title"
-    else
-      echo "Couldn't set the Reminders alert (allow Terminal in System Settings › Privacy & Security › Reminders)."
-    fi
-  fi
+  echo "HiveTempo step (add under Next step in HANDOFF.md, not Apple Reminders): [Noah, ~2 min] Update $name in TestFlight (build $build). $evidence_line"
 fi
