@@ -99,8 +99,36 @@ struct HivePatternTests {
         let ruleHit = try #require(proposals.first { $0.id == "rule:json-userdefaults-store" })
         #expect(ruleHit.category == .workflow)
         #expect(ruleHit.targetPackage == .hiveKit)
-        #expect(ruleHit.action == .extractNew)
+        #expect(ruleHit.action == .adoptExisting)  // HiveKit `JSONDefaultsStore` since 1.29.0
         #expect(ruleHit.repoCount == 2)
+    }
+
+    @Test func jsonStoreRulesAskToAdoptTheSharedStoreEvenInOneRepo() throws {
+        let root = try makeTempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let fileCode = """
+        import Foundation
+        struct DigestStore {
+            func save(_ items: [String]) throws {
+                let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                try JSONEncoder().encode(items).write(to: base.appendingPathComponent("d.json"))
+            }
+        }
+        """
+        let adopted = """
+        import Foundation
+        import HiveKit
+        let store = JSONFileStore<[String]>.applicationSupport("App/d.json")
+        let notes = JSONDefaultsStore<[String]>(key: "notes", defaults: UserDefaults.standard)
+        """
+        let alpha = try makeRepo("AppAlpha", in: root, files: ["DigestStore.swift": fileCode, "Adopted.swift": adopted])
+
+        let proposals = HivePattern.scan(repos: [alpha])
+        let hit = try #require(proposals.first { $0.id == "rule:json-file-store" })
+        #expect(hit.action == .adoptExisting)
+        #expect(hit.uses.map(\.file) == ["DigestStore.swift"])  // the file already on the shared store is not flagged
+        #expect(!proposals.contains { $0.id == "rule:json-userdefaults-store" })
     }
 
     @Test func detectsRawVerticalScrollViewButIgnoresHorizontalAndHMScroll() throws {

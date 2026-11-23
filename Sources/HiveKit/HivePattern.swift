@@ -194,9 +194,10 @@ public enum HivePattern {
             title: "JSON-backed UserDefaults store",
             category: .workflow,
             targetPackage: .hiveKit,
-            action: .extractNew,
-            summary: "Multiple apps encode/decode JSON models directly into UserDefaults; extract a small shared Codable store helper.",
-            minRepos: 2
+            action: .adoptExisting,
+            summary: "JSON models encoded straight into UserDefaults; use HiveKit's `JSONDefaultsStore` (since 1.29.0).",
+            minRepos: 1,
+            skipRepos: ["hive-kit", "HiveKit"]
         ) { source in
             let code = nonCommentLines(in: source)
             let hasDefaults = code.contains { $0.text.contains("UserDefaults") }
@@ -209,9 +210,10 @@ public enum HivePattern {
             title: "JSON file store in Application Support",
             category: .workflow,
             targetPackage: .hiveKit,
-            action: .extractNew,
-            summary: "Multiple apps hand-roll Application Support directories with JSONEncoder/JSONDecoder; share one file-backed store.",
-            minRepos: 2
+            action: .adoptExisting,
+            summary: "Hand-rolled Application Support JSON files; use HiveKit's `JSONFileStore` (since 1.29.0).",
+            minRepos: 1,
+            skipRepos: ["hive-kit", "HiveKit"]
         ) { source in
             let code = nonCommentLines(in: source)
             let hasAppSupport = code.contains { $0.text.contains("applicationSupportDirectory") }
