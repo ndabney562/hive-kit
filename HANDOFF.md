@@ -21,7 +21,7 @@
   - **2026-11-17 (Claude Opus 5.5): 1.17.0 `Budget.renewals`** (#4), **1.16.0 `BusinessSummary.budget`** (#3), **1.15.0 `Income.payouts`** (#2), **1.14.0 `BusinessSummary.income` + `IncomeGoal`** (#1).
   - Older Done entries (2026-11-07 to 2026-11-15): see [docs/HANDOFF-ARCHIVE.md](docs/HANDOFF-ARCHIVE.md).
 - **In progress:** nothing.
-- **Next step (exact):** [Claude Code, by 2026-11-29] Adopt `JSONFileStore` / `JSONDefaultsStore` where `hive-pattern scan` lists them: HiveWorld first (2026-11-22, this task), then HiveBeat (`SetlistStore`, `MarkupSaver`; after its Milestone 4 work is merged), HiveTempo (`LocalStateStore`), HiveRounds (`HiveRoundsKit` stores), HiveScore (`Readings`). (HiveWorld PR #29 and HiveBeat PR #31 moved both apps to 1.28.0 on 2026-11-22.) Then the other proposed patterns (widget/side-menu helpers).
+- **Next step (exact):** [Claude Code, by 2026-11-29] The other proposed patterns (widget/side-menu helpers), after `hive-pattern scan` on each active app. JSON store adoption, 2026-11-23: [Done] HiveWorld (#30), HiveTempo `LocalStateStore` (#160) and `WidgetStore` (#163). [Parked by Noah 2026-11-23] HiveBeat (`SetlistStore`, `MarkupSaver`: local branch `claude/hivebeat-json-store`, see its STOPPED.md) and HiveRounds (`HiveRoundsKit` stores). [Not moved] HiveScore `Readings`: HiveScore is frozen (bug fixes only).
 - **Blockers:** none.
 - **Last test result:** 2026-11-22 (`claude/json-store`): `swift test` (166 tests in 17 suites) and all script suites (`testflight.test.sh`, `asc_check.test.sh`, `asc_public_link.test.sh`, `test_evidence.py`) passed.
 - **Last commit hash:** see `git log -1`.
