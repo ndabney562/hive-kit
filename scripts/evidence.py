@@ -211,8 +211,9 @@ RERUN_MARK = "heavy-guard: failed under load (exit "
 def run_tests(repo, app, cmds):
     """Runs the commands (through heavy-guard when present).
 
-    Returns (exit code, output, seconds, under_load, rerun_at). After heavy-guard's quiet rerun, output is the
-    rerun's only and rerun_at its start time (else None)."""
+    Returns (exit code, output, seconds, under_load, rerun_at, before_rerun). After heavy-guard's quiet rerun,
+    output is the rerun's only, rerun_at its start time and before_rerun the .xcresult bundles the failed try
+    left (else None and an empty set)."""
     script = " && ".join(f"( {c} )" for c in cmds)
     shell = shutil.which("zsh") or "sh"
     cmd = [shell, "-c", script]
@@ -222,16 +223,17 @@ def run_tests(repo, app, cmds):
     start = time.time()
     proc = subprocess.Popen(cmd, cwd=str(repo), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     out = []
-    rerun_at = None
+    rerun_at, before_rerun = None, set()
     for line in proc.stdout:
         sys.stderr.write(line)  # live progress; stdout stays for the result lines
         if line.startswith(RERUN_MARK):  # the first try failed under load: count the rerun only
             out, rerun_at = [], time.time()
+            before_rerun = set(new_xcresults(start, app))  # the failed try has exited: all its bundles exist
             continue
         out.append(line)
     code = proc.wait()
     text = "".join(out)
-    return code, text, round(time.time() - start, 1), "heavy-guard: ran under load" in text, rerun_at
+    return code, text, round(time.time() - start, 1), "heavy-guard: ran under load" in text, rerun_at, before_rerun
 
 
 def write_index(out_dir, data):
@@ -411,16 +413,16 @@ def main(argv=None):
     cmds = test_commands(project_test_line(repo))
     started = time.time()
     if cmds:
-        code, output, seconds, under_load, rerun_at = run_tests(repo, app, cmds)
+        code, output, seconds, under_load, rerun_at, before_rerun = run_tests(repo, app, cmds)
     else:
         missing.append("no test command in PROJECT.md")
-        code, output, seconds, under_load, rerun_at = None, "", 0.0, False, None
+        code, output, seconds, under_load, rerun_at, before_rerun = None, "", 0.0, False, None, set()
     out_dir = repo / "release-evidence" / (build or "unknown")
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / ".gitignore").write_text("# Only evidence.json is committed; screenshots and index.html stay local.\n"
                                        "*\n!.gitignore\n!evidence.json\n")
     screens = []
-    bundles = new_xcresults(rerun_at or started, app) if cmds else []
+    bundles = [b for b in new_xcresults(rerun_at or started, app) if b not in before_rerun] if cmds else []
     # xcodebuild tests count once, from this run's .xcresult bundles (all of them: a unit run and a UI run each
     # make one); without any bundle, xcodebuild's printed summary is the fallback.
     summaries = [c for c in (xcresult_counts(b) for b in bundles) if c]
