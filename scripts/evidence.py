@@ -10,7 +10,9 @@ testflight.sh runs it before archiving and uploads only when it exits 0. No netw
 2. Tests: runs the PROJECT.md test command, plus the PROJECT.md xcodebuild UI test when that line names one, through
    ~/agent-rules/scripts/heavy-guard <app>-tests (HEAVY_GUARD_BIN overrides) when it exists. Records exit code,
    pass/fail/skip counts (swift test, XCTest, unittest summaries, and the run's .xcresult), duration, commit, and
-   whether heavy-guard said "ran under load".
+   whether heavy-guard said "ran under load". Tests run with --retry-quiet: a run that failed while the Mac
+   was busy reruns once on a quiet Mac, and only that rerun's output and .xcresult bundles count
+   ("quiet_rerun": true).
 3. Screenshots: the iPhone image attachments of the newest .xcresult this run made (xcrun xcresulttool), named like
    Bay Ridge's harness shots (path relative to the run folder, compared by bytes/sha256).
 4. Build: MARKETING_VERSION and CURRENT_PROJECT_VERSION from the Xcode project (--build wins).
@@ -203,23 +205,35 @@ def build_settings(repo, app):
     return None, None
 
 
+RERUN_MARK = "heavy-guard: failed under load (exit "
+
+
 def run_tests(repo, app, cmds):
-    """Runs the commands (through heavy-guard when present). Returns (exit code, output, seconds, under_load)."""
+    """Runs the commands (through heavy-guard when present).
+
+    Returns (exit code, output, seconds, under_load, rerun_at, before_rerun). After heavy-guard's quiet rerun,
+    output is the rerun's only, rerun_at its start time and before_rerun the .xcresult bundles the failed try
+    left (else None and an empty set)."""
     script = " && ".join(f"( {c} )" for c in cmds)
     shell = shutil.which("zsh") or "sh"
     cmd = [shell, "-c", script]
     guard = os.environ.get("HEAVY_GUARD_BIN", str(HOME / "agent-rules" / "scripts" / "heavy-guard"))
     if os.access(guard, os.X_OK):
-        cmd = [guard, f"{app}-tests", "--"] + cmd
+        cmd = [guard, "--retry-quiet", f"{app}-tests", "--"] + cmd
     start = time.time()
     proc = subprocess.Popen(cmd, cwd=str(repo), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     out = []
+    rerun_at, before_rerun = None, set()
     for line in proc.stdout:
         sys.stderr.write(line)  # live progress; stdout stays for the result lines
+        if line.startswith(RERUN_MARK):  # the first try failed under load: count the rerun only
+            out, rerun_at = [], time.time()
+            before_rerun = set(new_xcresults(start, app))  # the failed try has exited: all its bundles exist
+            continue
         out.append(line)
     code = proc.wait()
     text = "".join(out)
-    return code, text, round(time.time() - start, 1), "heavy-guard: ran under load" in text
+    return code, text, round(time.time() - start, 1), "heavy-guard: ran under load" in text, rerun_at, before_rerun
 
 
 def write_index(out_dir, data):
@@ -399,16 +413,16 @@ def main(argv=None):
     cmds = test_commands(project_test_line(repo))
     started = time.time()
     if cmds:
-        code, output, seconds, under_load = run_tests(repo, app, cmds)
+        code, output, seconds, under_load, rerun_at, before_rerun = run_tests(repo, app, cmds)
     else:
         missing.append("no test command in PROJECT.md")
-        code, output, seconds, under_load = None, "", 0.0, False
+        code, output, seconds, under_load, rerun_at, before_rerun = None, "", 0.0, False, None, set()
     out_dir = repo / "release-evidence" / (build or "unknown")
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / ".gitignore").write_text("# Only evidence.json is committed; screenshots and index.html stay local.\n"
                                        "*\n!.gitignore\n!evidence.json\n")
     screens = []
-    bundles = new_xcresults(started, app) if cmds else []
+    bundles = [b for b in new_xcresults(rerun_at or started, app) if b not in before_rerun] if cmds else []
     # xcodebuild tests count once, from this run's .xcresult bundles (all of them: a unit run and a UI run each
     # make one); without any bundle, xcodebuild's printed summary is the fallback.
     summaries = [c for c in (xcresult_counts(b) for b in bundles) if c]
@@ -443,6 +457,7 @@ def main(argv=None):
                   "exit_code": code, "duration_s": seconds},
         "suites": [{"name": "project-test-command", "exit": code}],
         "under_load": under_load,
+        "quiet_rerun": rerun_at is not None,
         "xcresult": [str(b) for b in bundles],
         "screenshots": screens,
         "ready": ready,

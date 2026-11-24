@@ -264,13 +264,50 @@ class GuardTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fx = Fixture(tmp)
             guard = fx.root / "guard"
-            guard.write_text('#!/bin/sh\necho "$1" > "$GUARD_LOG"; shift 2; "$@"; rc=$?\n'
+            guard.write_text('#!/bin/sh\necho "$1 $2" > "$GUARD_LOG"; shift 3; "$@"; rc=$?\n'
                              'echo "heavy-guard: ran under load (load 40.0)" >&2; exit $rc\n')
             guard.chmod(0o755)
             fx.run("--build", "7", HEAVY_GUARD_BIN=str(guard), GUARD_LOG=str(fx.root / "g.log"))
-            self.assertEqual((fx.root / "g.log").read_text().strip(), "Demo-tests")
+            self.assertEqual((fx.root / "g.log").read_text().strip(), "--retry-quiet Demo-tests")
             data = json.loads((fx.repo / "release-evidence" / "7" / "evidence.json").read_text())
             self.assertTrue(data["under_load"])
+            self.assertFalse(data["quiet_rerun"])
+
+    def test_quiet_rerun_counts_only_the_rerun(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = Fixture(tmp)
+            fx.run("--build", "6")
+            plain = json.loads((fx.repo / "release-evidence" / "6" / "evidence.json").read_text())["tests"]
+            guard = fx.root / "guard"
+            guard.write_text('#!/bin/sh\nshift 3\n'
+                             'printf "Ran 9 tests in 0s\\n\\nFAILED (failures=2)\\n"\n'
+                             'echo "heavy-guard: ran under load (load 40.0)" >&2\n'
+                             'echo "heavy-guard: failed under load (exit 1); rerunning on a quiet Mac" >&2\n'
+                             '"$@"; rc=$?\n'
+                             'echo "heavy-guard: failed under load, passed on quiet rerun" >&2; exit $rc\n')
+            guard.chmod(0o755)
+            fx.run("--build", "7", HEAVY_GUARD_BIN=str(guard))
+            data = json.loads((fx.repo / "release-evidence" / "7" / "evidence.json").read_text())
+            self.assertEqual(data["tests"]["passed"], plain["passed"])
+            self.assertEqual(data["tests"]["failed"], 0)
+            self.assertFalse(data["under_load"])
+            self.assertTrue(data["quiet_rerun"])
+
+    def test_quiet_rerun_drops_the_failed_try_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = Fixture(tmp)
+            proj = fx.repo / "PROJECT.md"
+            proj.write_text(proj.read_text().replace("echo 'Ran 3 tests in 0.01s'; echo OK", xcode_test_cmd(fx)))
+            fx.git("commit", "-qam", "cmd")
+            first = fx.dd / "Demo-abc" / "Logs" / "Test" / "Test-Demo-first.xcresult"
+            guard = fx.root / "guard"
+            guard.write_text(f"#!/bin/sh\nshift 3\nmkdir -p '{first}'\n"  # the failed try's bundle, just before the mark
+                             'echo "heavy-guard: failed under load (exit 65); rerunning on a quiet Mac" >&2\n'
+                             '"$@"\n')
+            guard.chmod(0o755)
+            fx.run("--build", "7", HEAVY_GUARD_BIN=str(guard))
+            data = json.loads((fx.repo / "release-evidence" / "7" / "evidence.json").read_text())
+            self.assertEqual([Path(b).name for b in data["xcresult"]], ["Test-Demo-now.xcresult"])
 
 
 class FeedTest(unittest.TestCase):
