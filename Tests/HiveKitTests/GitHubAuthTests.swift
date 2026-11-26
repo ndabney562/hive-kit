@@ -193,6 +193,17 @@ struct GitHubAuthTests {
         }
     }
 
+    /// GitHub answers a used or unknown refresh token with `incorrect_client_credentials` (it can't tell the token came
+    /// from the device flow), not `bad_refresh_token`. HiveTempo showed it as an error and never offered sign-in
+    /// (iPhone, 2026-11-26).
+    @Test func refreshRejectedAsClientCredentialsSignsOut() async throws {
+        let safe = MemorySafe(expiring(in: 60))
+        let keeper = TokenKeeper(flow: flow(StubTransport(script: [["error": "incorrect_client_credentials"]])),
+                                 safe: safe)
+        await #expect(throws: AuthError.signedOut) { try await keeper.accessToken() }
+        #expect(safe.read() == nil)
+    }
+
     @Test func cancelledRefreshIsNotOffline() async throws {
         let safe = MemorySafe(expiring(in: 60))
         let keeper = TokenKeeper(flow: flow(StubTransport { _ in throw URLError(.cancelled) }), safe: safe)
