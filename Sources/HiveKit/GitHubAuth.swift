@@ -115,7 +115,9 @@ public struct DeviceFlow: Sendable {
         ])
         switch json["error"] as? String {
         case nil: return try token(json)
-        case "bad_refresh_token": throw AuthError.signedOut
+        // GitHub answers a used or unknown refresh token with `incorrect_client_credentials`: it can't tell the
+        // token came from the device flow, so it asks for a secret we don't have. Either way: sign in again.
+        case "bad_refresh_token", "incorrect_client_credentials": throw AuthError.signedOut
         case let error?: throw AuthError.github(error)
         }
     }
