@@ -33,6 +33,7 @@ import hashlib
 import html
 import json
 import os
+import plistlib
 import re
 import shutil
 import subprocess
@@ -52,6 +53,33 @@ def git(repo, *args):
 def dirty_files(repo):
     out = git(repo, "status", "--porcelain", "--untracked-files=all")
     return [line[3:] for line in out.splitlines() if line[3:] and not line[3:].startswith("release-evidence/")]
+
+
+def missing_privacy_manifests(repo, app):
+    """App and widget extension directories must carry a valid PrivacyInfo.xcprivacy manifest."""
+    issues = []
+    targets = []
+    app_dir = repo / app
+    if app_dir.is_dir():
+        targets.append(app_dir)
+    for p in sorted(repo.iterdir()):
+        if not p.is_dir() or p == app_dir:
+            continue
+        if p.name.endswith(("Widget", "Extension")) and not p.name.startswith("."):
+            targets.append(p)
+    for target in targets:
+        manifest = target / "PrivacyInfo.xcprivacy"
+        if not manifest.is_file():
+            issues.append(f"missing PrivacyInfo.xcprivacy in {target.name}")
+            continue
+        try:
+            data = plistlib.loads(manifest.read_bytes())
+        except Exception:
+            issues.append(f"invalid PrivacyInfo.xcprivacy in {target.name}")
+            continue
+        if not isinstance(data, dict):
+            issues.append(f"invalid PrivacyInfo.xcprivacy in {target.name}")
+    return issues
 
 
 def test_commands(line):
@@ -406,6 +434,7 @@ def main(argv=None):
     build = args.build or build
     if not build:
         missing.append("no build number (CURRENT_PROJECT_VERSION in the Xcode project, or --build)")
+    missing.extend(missing_privacy_manifests(repo, app))
     commit = git(repo, "rev-parse", "HEAD").strip()
     baseline, base_commit = previous_release(repo, build)
     changes = changes_since(repo, base_commit, commit)

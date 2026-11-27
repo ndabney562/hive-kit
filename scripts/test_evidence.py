@@ -437,5 +437,31 @@ class CommandsTest(unittest.TestCase):
         self.assertEqual(ev.screen_name("plain.png"), "plain.png")
 
 
+class PrivacyManifestTest(unittest.TestCase):
+    VALID_PLIST = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+        '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+        '<plist version="1.0"><dict><key>NSPrivacyTracking</key><false/></dict></plist>\n'
+    )
+
+    def test_missing_or_invalid_privacy_manifests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fx = Fixture(tmp)
+            (fx.repo / "Demo").mkdir()
+            (fx.repo / "Demo" / "App.swift").write_text("// app")
+            (fx.repo / "DemoWidget").mkdir()
+            (fx.repo / "DemoWidget" / "Widget.swift").write_text("// widget")
+            self.assertEqual(ev.missing_privacy_manifests(fx.repo, "Demo"),
+                             ["missing PrivacyInfo.xcprivacy in Demo",
+                              "missing PrivacyInfo.xcprivacy in DemoWidget"])
+            (fx.repo / "Demo" / "PrivacyInfo.xcprivacy").write_text("not xml")
+            (fx.repo / "DemoWidget" / "PrivacyInfo.xcprivacy").write_text(self.VALID_PLIST)
+            self.assertEqual(ev.missing_privacy_manifests(fx.repo, "Demo"),
+                             ["invalid PrivacyInfo.xcprivacy in Demo"])
+            (fx.repo / "Demo" / "PrivacyInfo.xcprivacy").write_text(self.VALID_PLIST)
+            self.assertEqual(ev.missing_privacy_manifests(fx.repo, "Demo"), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
