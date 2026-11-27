@@ -45,6 +45,14 @@ public struct DeviceCode: Equatable, Sendable {
     public var expiresAt: Date
     var deviceCode: String
     var interval: Int
+
+    public init(userCode: String, verificationURI: URL, expiresAt: Date, deviceCode: String = "", interval: Int = 5) {
+        self.userCode = userCode
+        self.verificationURI = verificationURI
+        self.expiresAt = expiresAt
+        self.deviceCode = deviceCode
+        self.interval = interval
+    }
 }
 
 public struct DeviceFlow: Sendable {
@@ -152,6 +160,8 @@ public protocol TokenSafe: Sendable {
     /// Saves `new` only if the store still holds `old`; false when another app changed it first (signed out, signed
     /// in again, or refreshed). The Keychain store does the check and the save in one step (Codex, PR #18).
     func replace(_ old: Token, with new: Token) throws -> Bool
+    /// Migrates any per-app legacy token into the shared store and removes stale copies.
+    func migrateIfNeeded()
 }
 
 extension TokenSafe {
@@ -161,6 +171,8 @@ extension TokenSafe {
         try write(new)
         return true
     }
+
+    public func migrateIfNeeded() {}
 }
 
 /// One GitHub sign-in for every Hive app (Noah, 2026-11-09: "sign in once"). Reads the shared token first, then
@@ -193,14 +205,22 @@ public struct SharedTokenSafe: TokenSafe {
     /// never moved back in and every app stays signed out (Codex, PR #18).
     static let signedOut = Token(accessToken: "", expiresAt: nil, refreshToken: nil, refreshExpiresAt: nil)
 
+    /// Side-effect-free read (safe for widgets via `ReadOnlyTokenSafe`). Call `migrateIfNeeded()` from the app to
+    /// move an older per-app token into the shared store.
     public func read() -> Token? {
         if let token = shared.read() {
-            own.clear()  // the shared token (or the sign-out marker) wins over a stale own copy
             return token.accessToken.isEmpty ? nil : token
         }
-        guard let token = own.read() else { return nil }
+        return own.read()
+    }
+
+    public func migrateIfNeeded() {
+        if shared.read() != nil {
+            own.clear()  // the shared token (or the sign-out marker) wins over a stale own copy
+            return
+        }
+        guard let token = own.read() else { return }
         if (try? shared.write(token)) != nil { own.clear() }  // moved: the other Hive apps see it now
-        return token
     }
 
     public func write(_ token: Token) throws {
@@ -272,13 +292,28 @@ public struct KeychainTokenSafe: TokenSafe {
     }
 
     public func write(_ token: Token) throws {
-        clear()
+        let data = try JSONEncoder().encode(token)
+        let fp = Self.fingerprint(token)
+        let change: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrGeneric as String: fp,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let status = SecItemUpdate(query as CFDictionary, change as CFDictionary)
+        if status == errSecSuccess { return }
+        guard status == errSecItemNotFound else { throw KeychainError(status: status) }
         var q = query
-        q[kSecValueData as String] = try JSONEncoder().encode(token)
-        q[kSecAttrGeneric as String] = Self.fingerprint(token)
+        q[kSecValueData as String] = data
+        q[kSecAttrGeneric as String] = fp
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(q as CFDictionary, nil)
-        if status != errSecSuccess { throw KeychainError(status: status) }
+        let addStatus = SecItemAdd(q as CFDictionary, nil)
+        if addStatus == errSecSuccess { return }
+        if addStatus == errSecDuplicateItem {
+            let retry = SecItemUpdate(query as CFDictionary, change as CFDictionary)
+            if retry == errSecSuccess { return }
+            throw KeychainError(status: retry)
+        }
+        throw KeychainError(status: addStatus)
     }
 
     /// One Keychain update that matches the stored item by `old`'s fingerprint: if another app changed the item
@@ -320,6 +355,7 @@ public actor TokenKeeper {
     private var refreshing: Task<Token, Error>?
     /// Goes up at each sign-out: a refresh started before it must not save its token (Codex review, 2026-11-05).
     private var session = 0
+    private var didMigrate = false
 
     /// `safe` is usually `KeychainTokenSafe(service: "<the app's bundle id>")`.
     public init(flow: DeviceFlow, safe: any TokenSafe) {
@@ -327,10 +363,17 @@ public actor TokenKeeper {
         self.safe = safe
     }
 
+    public func migrateIfNeeded() {
+        guard !didMigrate else { return }
+        didMigrate = true
+        safe.migrateIfNeeded()
+    }
+
     public var isSignedIn: Bool { safe.read() != nil }
 
     /// Signs in with the device flow; `show` gets the code to put on screen.
     public func signIn(show: @Sendable (DeviceCode) async -> Void) async throws {
+        migrateIfNeeded()
         let started = session
         let code = try await flow.start()
         await show(code)
@@ -353,6 +396,7 @@ public actor TokenKeeper {
 
     /// A token good for at least a few minutes, refreshed first when needed.
     public func accessToken() async throws -> String {
+        migrateIfNeeded()
         guard let token = safe.read() else { throw AuthError.signedOut }
         if let expires = token.expiresAt, expires.timeIntervalSince(flow.now()) < Self.margin {
             return try await refresh(token).accessToken
@@ -362,6 +406,7 @@ public actor TokenKeeper {
 
     /// GitHub turned `rejected` down (401). Refreshes unless another caller already has.
     public func tokenAfterRejection(of rejected: String) async throws -> String {
+        migrateIfNeeded()
         guard let token = safe.read() else { throw AuthError.signedOut }
         if token.accessToken != rejected { return token.accessToken }
         return try await refresh(token).accessToken

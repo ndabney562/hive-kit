@@ -236,10 +236,14 @@ struct GitHubAuthTests {
     }
 
     // Sign in once (Noah, 2026-11-09): HiveScore and HiveTempo share one GitHub sign-in.
-    @Test func sharedSafeMovesAnAppsOwnTokenIntoTheSharedOne() throws {
+    // Audit P0 #1: read() is side-effect-free for widgets; migrateIfNeeded() moves legacy own copies.
+    @Test func sharedSafeReadIsSideEffectFreeAndMigrateIfNeededMovesAnAppsOwnToken() throws {
         let own = MemorySafe(expiring(in: 3600)), shared = MemorySafe()
         let safe = SharedTokenSafe(shared: shared, own: own)
         #expect(safe.read()?.accessToken == "ghu_old")
+        #expect(shared.read() == nil)
+        #expect(own.read()?.accessToken == "ghu_old")
+        safe.migrateIfNeeded()
         #expect(shared.read()?.accessToken == "ghu_old")
         #expect(own.read() == nil)
     }
@@ -280,15 +284,28 @@ struct GitHubAuthTests {
         SharedTokenSafe(shared: shared, own: MemorySafe()).clear()   // app A signs out
         let b = SharedTokenSafe(shared: shared, own: ownB)
         #expect(b.read() == nil)
+        b.migrateIfNeeded()
         #expect(ownB.read() == nil)
         try b.write(expiring(in: 3600))                               // signing in again works
         #expect(SharedTokenSafe(shared: shared, own: MemorySafe()).read()?.accessToken == "ghu_old")
     }
 
-    @Test func readingTheSharedTokenDropsTheAppsStaleOwnCopy() throws {
+    @Test func migrateIfNeededDropsTheAppsStaleOwnCopy() throws {
         let shared = MemorySafe(expiring(in: 3600)), own = MemorySafe(expiring(in: 3600))
-        _ = SharedTokenSafe(shared: shared, own: own).read()
+        let safe = SharedTokenSafe(shared: shared, own: own)
+        _ = safe.read()
+        #expect(own.read() != nil)
+        safe.migrateIfNeeded()
         #expect(own.read() == nil)
+    }
+
+    @Test func deviceCodePublicInitializerSetsFields() {
+        let url = URL(string: "https://github.com/login/device")!
+        let expiry = clock.now().addingTimeInterval(900)
+        let code = DeviceCode(userCode: "ABCD-1234", verificationURI: url, expiresAt: expiry)
+        #expect(code.userCode == "ABCD-1234")
+        #expect(code.verificationURI == url)
+        #expect(code.expiresAt == expiry)
     }
 
     /// Codex, PR #18: a refresh that finishes after another app signed out must not sign every app back in.
